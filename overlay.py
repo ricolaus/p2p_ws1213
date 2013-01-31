@@ -24,7 +24,9 @@ class Overlay:
         self.__terminated = False
         # ping to bootstrapping node
         self.putToOutQueue(("Ping", random.randrange(0, 9999, 1) , 4, 0, self.ownUsername, self.ownIP, bootstrappingIP))
-
+        # start thread which watches the incoming queue
+        self.inQueueThread = threading.Thread(target=self.watchInQueue)
+        self.inQueueThread.start()
     
     def terminate(self):
         print "Enter terminate()"
@@ -48,6 +50,13 @@ class Overlay:
                 self.knownPeers.append(peer)
                 if len(self.knownPeers) > 15:
                     self.knownPeers.pop(0)
+                    
+    def addToNeighbours(self, peer):
+        if not peer == (self.ownUsername, self.ownIP):
+            if self.neighbours.count(peer) == 0:
+                if len(self.neighbours) < 5:
+                    self.neighbours.append(peer)
+
             
     def processPing(self, message):
         # incoming Ping := ("Ping", PingID, TTL, Hops, senderUsername, senderIP)
@@ -68,8 +77,8 @@ class Overlay:
                 ttl = 7 - hops
             # send ping to each neighbour
             for neighbour in self.neighbours: 
-                if not neighbour == username:
-                    self.putToOutQueue((msgType, id, ttl-1, hops+1, self.ownUsername, self.ownIP, self.neighbours[neighbour]))
+                if not neighbour[0] == username:
+                    self.putToOutQueue((msgType, id, ttl-1, hops+1, self.ownUsername, self.ownIP, neighbour[1]))
         elif (ttl == 1) and (id not in self.ping):
             # add to ping dictionary
             self.ping[id] = ip
@@ -95,8 +104,14 @@ class Overlay:
             peers.append((self.ownUsername, self.ownIP))
         
         # send pong to sender
-        self.putToOutQueue((msgType, id, peers, self.ping[id]))
+        if id in self.ping:
+            self.putToOutQueue((msgType, id, peers, self.ping[id]))
+        else:
+            print "Cannot forward pong because no ping with this id has arrived before"
 
+        # refresh/fill neighbour list
+        for knownPeer in self.knownPeers: 
+            self.addToNeighbours(knownPeer)
             
     def watchInQueue(self):
         print "Enter watchInQueue()"
@@ -106,10 +121,10 @@ class Overlay:
                 message = self.getFromInQueue()
                 if message[0] == "Ping":
                     self.processPing(message)
-                    print "Reenter watchInQueue() from processPing"
+                    # print "Reenter watchInQueue() from processPing"
                 elif message[0] == "Pong":
                     self.processPong(message)
-                    print "Reenter watchInQueue() from processPong"
+                    # print "Reenter watchInQueue() from processPong"
                 else:
                     print "Unknown message type"
             # WARNING: the thread will terminate if the queue is empty
@@ -117,11 +132,6 @@ class Overlay:
             # else:
                 # self.__terminated = True
                 
-        print "Terminate watchInQueue()"
-
             
     def start(self):
         print "Enter start()"
-        # start thread which watches the incoming queue
-        inQueueThread = threading.Thread(target=self.watchInQueue())
-        inQueueThread.start()
