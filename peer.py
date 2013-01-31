@@ -9,16 +9,23 @@ from overlay import Overlay
 inQueue = Queue()
 outQueue = Queue()
 
-test = ("Ping", "User" ,8.2)
+inQueue.put(("Ping", "0001", 4, 0, "User1", 8.1), True)
 
-inQueue.put(test)
-
-overlay = Overlay(inQueue, outQueue)
+# initialize and start overlay layer
+overlay = Overlay("User0", 8.0, 1.337, inQueue, outQueue)
 overlay.start()
-#outQueue.put(number)
 
-##while not inQueue.empty():
-##    print inQueue.get()
-##print "/"
+inQueue.put(("Ping", "0002", 2, 0, "User2", 8.2), True)
+inQueue.put(("Ping", "0003", 1, 0, "User3", 8.3), True)
+
+while not overlay.threadStarted: 
+    pass
+while overlay.threadCount > 0:
+    pass
+    
+# debug output
+print "Number of processed messages: " + str(outQueue.qsize())
 while not outQueue.empty():
-    print outQueue.get()
+    print outQueue.get(True)
+
+# overlay.terminate()
