@@ -1,34 +1,34 @@
 import socket
-import threading
+from threading import Thread
 import time
 import sys
 import Queue
 import random
 import zlib
 import hashlib
+import re
 
-class UdpThread(threading.Thread): 
-	def __init__(self, mode, ip, port): 
-		threading.Thread.__init__(self)
-		self.__mode = mode
+class Network(object): 
+	def __init__(self, ip, pRecv): 
 		self.__ip = ip
-		self.__port = port
+		self.__portRecv = pRecv
  
 	def run(self):
-		if self.__mode == "send":
-			self.__sendUdp()
-		if self.__mode == "recv":
-			self.__recvUdp()
-		if self.__mode == "test1":
-			self.__test1()
+		t0 = Thread(target=self.__recvUdp, args=())
+		t0.start()
+		t1 = Thread(target=self.__sendUdp, args=())
+		t1.start()
+		if mode == 1:
+			t2 = Thread(target=self.__test1, args=())
+			t2.start()
             
     
 	def __test1(self):
 		print "test1 start"
 		while True:
 			#print "Hallo"
-			zahl = random.randint(0, 100000000)
-			sendQueue.put(str(zahl))
+			zahl = random.randint(0, 10)
+			sendQueue.put(("127.0.0.1", portSend, str(zahl)))
 			time.sleep(random.uniform(0.1,3.0))
 			if eingabe == "ende":
 				break
@@ -44,6 +44,8 @@ class UdpThread(threading.Thread):
 		except socket.error as msg:
 			sockSend = None
 		try:
+			nachricht = self.__calcHash(nachricht) + nachricht
+			nachricht = self.__ip + ";" + str(self.__portRecv) + ";" + nachricht
 			sockSend.sendto(nachricht, (ip, port))
 		except socket.error as msg:
 			sockSend.close()
@@ -58,32 +60,44 @@ class UdpThread(threading.Thread):
 		print "sendUdp start"
 		
 		while True:
-			#print "Hallo"
+	#		print "Hallo"
+	#		if eingabe == "ende":
+	#			break
+			index = 1
 			try:
-				nachricht = sendQueue.get(True, 1.0)
-				nachricht = str(hashlib.md5(nachricht).hexdigest())[:HASHLENGTH] + nachricht
-				self.__send(self.__ip, self.__port, nachricht)
+				(sendIP, sendPort, nachricht) = sendQueue.get(True, 1.0)
+				self.__send(sendIP, sendPort, nachricht)
+				while True:
+	#				print "huhu"
+					receipt = ""	
+					try:
+						receipt = receiptQueue.get(True, 1.0)
+	#					print receipt
+					except Queue.Empty:
+						if index == 10:
+							#Ansage nach oben das Host nicht erreichbar ist
+							print "Host nicht erreichbar"
+							break
+						if eingabe == "ende":
+							return
+						self.__send(sendIP, sendPort, nachricht)
+						index = index + 1
+					if receipt == "True":
+	#					print "ABBRECHEN"
+						break
 			except Queue.Empty:
 				if eingabe == "ende":
 					break
-			#print "sendUdp" + nachricht
-	#		while True:
-	#			print "huhu"
-	#			receipt = ""	
-	#			try:
-	#				receipt = receiptQueue.get(True, 1.0)
-	#			except Queue.Empty:
-	#				if eingabe == "ende":
-	#					break
-	#			if receipt == True:
-	#				break
-			#time.sleep(0.1)
 		print "sendUdp ende"
+
+	def __calcHash(self, text):
+		hatshi = hashlib.md5(text).hexdigest()[:HASHLENGTH]
+		return hatshi
     
 	def __recvUdp(self):
 		print "recvUdp start"
 		sockRecv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		sockRecv.bind((self.__ip, self.__port))
+		sockRecv.bind((self.__ip, self.__portRecv))
 		sockRecv.settimeout(1.0)
 		while True:
 			if eingabe == "ende":
@@ -92,23 +106,26 @@ class UdpThread(threading.Thread):
 			addr = ""
 			try:
 				daten, addr = sockRecv.recvfrom(BUFFERSIZE)
+				(senderIP, senderPort, daten) = re.split(r";", daten)
+				nachricht = daten[HASHLENGTH:]
+				hatshi0 = str(self.__calcHash(nachricht))
+				hatshi1 = daten[0:HASHLENGTH]
 			except socket.timeout:
 				if eingabe == "ende":
 					break
 			if not(daten == ""):
-	#			if daten[:HASHLENGTH] == "True":
-	#				print "Quittung erhalten"
-	#				receiptQueue.put((True,daten[0:HASHLENGTH])
-	#			else:
-					nachricht = daten[HASHLENGTH:]
-					hashi = hashlib.md5(nachricht).hexdigest()[:HASHLENGTH]
-					if str(hashi) == daten[0:HASHLENGTH]:
+				if nachricht[HASHLENGTH:] == "True":
+		#			print "Quittung erhalten"
+					receiptQueue.put("True")
+				else:
+					if hatshi0 == hatshi1:
 						hashTest = True
-	#					sendQueue.put(hashi + "True")
+						self.__send(senderIP, int(senderPort), hatshi1 + "True")
+		#				sendQueue.put(hashi + "True")
 					else:
 						hashTest = False
-	#					sendQueue.put(hashi + "False")
-					print "[RECV] %s %s %s %s" % (addr[0], addr[1], hashTest, nachricht)
+		#				sendQueue.put(hashi + "False")
+					print "[RECV] %s %s %s %s %s %s" % (addr[0], addr[1], senderIP, senderPort, hashTest, nachricht)
 			#time.sleep(0.1)
 		sockRecv.close()
 		print "recvUdp ende"
@@ -125,6 +142,7 @@ if len(sys.argv) < 5:
 ip = sys.argv[1]
 portRecv = int(sys.argv[2])
 portSend = int(sys.argv[3])
+mode = int(sys.argv[4])
 #sys.exit()
 
 sendQueue = Queue.Queue()
@@ -134,17 +152,20 @@ eingabe = ""
 HASHLENGTH = 5
 BUFFERSIZE = 1024
 
-meine_threads = []
-threadRecv = UdpThread("recv", ip, portRecv)
-meine_threads.append(threadRecv) 
-threadRecv.start()
-threadSend = UdpThread("send", ip, portSend) 
-meine_threads.append(threadSend) 
-threadSend.start()
-if int(sys.argv[4]) == 1:
-	threadTest1 = UdpThread("test1", "", portSend) 
-	meine_threads.append(threadTest1) 
-	threadTest1.start()
+network = Network(ip, portRecv)
+network.run()
+
+#meine_threads = []
+#threadRecv = UdpThread("recv", ip, portRecv)
+#meine_threads.append(threadRecv) 
+#threadRecv.start()
+#threadSend = UdpThread("send", ip, portSend) 
+#meine_threads.append(threadSend) 
+#threadSend.start()
+#if int(sys.argv[4]) == 1:
+#	threadTest1 = UdpThread("test1", "", portSend) 
+#	meine_threads.append(threadTest1) 
+#	threadTest1.start()
 
 
 #time.sleep(1.0)
