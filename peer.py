@@ -1,5 +1,6 @@
 import sys
 from Queue import Queue
+import threading
 #import copy
 
 from overlay import Overlay
@@ -18,10 +19,10 @@ overlay.start()
 inQueue.put(("Ping", "0002", 2, 0, "User2", 8.2), True)
 inQueue.put(("Ping", "0003", 1, 0, "User3", 8.3), True)
 
-while not overlay.threadStarted: 
+while not inQueue.empty():
     pass
-while overlay.threadCount > 0:
-    pass
+
+overlay.terminate()
     
 # debug output
 print "Number of processed messages: " + str(outQueue.qsize())

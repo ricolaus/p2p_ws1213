@@ -1,5 +1,5 @@
 import sys
-import thread
+import threading
 import random
 #import copy
 
@@ -21,19 +21,14 @@ class Overlay:
         # dictionary of received pings
         self.ping = {}
         # bool wether the program should terminate
-        self.terminated = False
-        # lock object for threads
-        self.lock = thread.allocate_lock() 
-        # number of active threads
-        self.threadCount = 0
-        # wether the thread was started or not
-        self.threadStarted = False
+        self.__terminated = False
         # ping to bootstrapping node
         self.putToOutQueue(("Ping", random.randrange(0, 9999, 1) , 4, 0, self.ownUsername, self.ownIP, bootstrappingIP))
+
     
     def terminate(self):
         print "Enter terminate()"
-        self.terminated = True
+        self.__terminated = True
     
     def getFromInQueue(self):
         print "Enter getFromInQueue()"
@@ -57,6 +52,9 @@ class Overlay:
     def processPing(self, message):
         # incoming Ping := ("Ping", PingID, TTL, Hops, senderUsername, senderIP)
         # outgoing Ping := ("Ping", PingID, TTL, Hops, ownUsername, ownIP, targetIP)
+        
+        print "Enter processPing()"
+        
         msgType, id, ttl, hops, username, ip = message
         
         # add to/refresh knownPeers list
@@ -83,6 +81,9 @@ class Overlay:
     def processPong(self, message):
         # incomingPong := ("Pong", ID, [(Username, IP), (Username2, IP2), ...])
         # outgoingPong := ("Pong", ID, [(Username, IP), (Username2, IP2), ...], IP)
+        
+        print "Enter processPong()"
+        
         msgType, id, peers = message
         
         # refresh own peers list
@@ -98,33 +99,29 @@ class Overlay:
 
             
     def watchInQueue(self):
-    
-        self.lock.acquire()
-        self.threadCount += 1
-        self.threadStarted = True
-        self.lock.release()
-        
         print "Enter watchInQueue()"
-        while not self.terminated:
+        while not self.__terminated:
             message = ()
             if not self.inQueue.empty():
                 message = self.getFromInQueue()
                 if message[0] == "Ping":
                     self.processPing(message)
+                    print "Reenter watchInQueue() from processPing"
                 elif message[0] == "Pong":
                     self.processPong(message)
+                    print "Reenter watchInQueue() from processPong"
                 else:
                     print "Unknown message type"
             # WARNING: the thread will terminate if the queue is empty
             # only for correct terminating while debugging
-            else:
-                self.terminated = True
-        
-        #if terminating
-        self.lock.acquire()
-        self.threadCount -= 1
-        self.lock.release()
+            # else:
+                # self.__terminated = True
+                
+        print "Terminate watchInQueue()"
+
             
     def start(self):
         print "Enter start()"
-        thread.start_new_thread(self.watchInQueue, ())
+        # start thread which watches the incoming queue
+        inQueueThread = threading.Thread(target=self.watchInQueue())
+        inQueueThread.start()
