@@ -16,7 +16,6 @@ n2o.put(("ping", 1, 4, 0, "User1", 8.1), True)
 
 # initialize and start overlay layer
 overlay = Overlay("User0", 8.0, 1.337, n2o, o2n, a2o, o2a)
-# overlay.start()
 
 # n2o.put(("ping", 2, 2, 2, "User2", 8.2), True)
 n2o.put(("pong", 1, [("User1", 8.1), ("User2", 8.2), ("User3", 8.3), ("User5", 8.5), ("User6", 8.6), ("User7", 8.7)]), True)
@@ -34,8 +33,5 @@ overlay.currencyThread.join()
 overlay.a2oThread.join()
     
 # debug output
-# print "Number of processed messages: " + str(o2n.qsize())
 while not o2n.empty():
     print o2n.get(True)
-
-# overlay.terminate()

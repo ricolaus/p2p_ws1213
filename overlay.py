@@ -4,6 +4,14 @@ import random
 # import copy
 
 class Overlay:
+    #===========================================================================
+    # __init__
+    #
+    # Constructor of the overlay layer.
+    # Initializes all class variables.
+    # Sends the first (bootstrapping) 'ping' message.
+    # Starts all threads.
+    #===========================================================================
     def __init__(self, username, ip, bootstrappingIP, q1, q2, q3, q4):
         print "Enter constructor of overlay"
         # incoming queue from network layer
@@ -39,10 +47,20 @@ class Overlay:
         self.a2oThread = threading.Thread(target=self.watchA2O)
         self.a2oThread.start()
     
+    #===========================================================================
+    # terminate
+    #
+    # Initiates the termination of all threads.
+    #===========================================================================
     def terminate(self):
         print "Enter terminate()"
         self.__terminated = True
     
+    #===========================================================================
+    # getFromN2O
+    #
+    # Gets a message from the incoming queue from the network.
+    #===========================================================================
     def getFromN2O(self):
         print "Enter getFromN2O()"
         message = ()
@@ -50,11 +68,21 @@ class Overlay:
             message = self.n2o.get(True)
         return message
        
+    #===========================================================================
+    # putToO2N
+    #
+    # Puts a message into the outgoing queue to the network.
+    #===========================================================================
     def putToO2N(self, message):
         print "Enter putToO2N()"
         if self.o2n:
             self.o2n.put(message, True)
             
+    #===========================================================================
+    # getFromA2O
+    #
+    # Gets a message from the incoming queue from the application.
+    #===========================================================================
     def getFromA2O(self):
         print "Enter getFromA2O()"
         message = ()
@@ -62,11 +90,22 @@ class Overlay:
             message = self.a2o.get(True)
         return message
        
+    #===========================================================================
+    # putToO2A
+    #
+    # Puts a message into the outgoing queue to the application.
+    #===========================================================================
     def putToO2A(self, message):
         print "Enter putToO2A()"
         if self.o2a:
             self.o2a.put(message, True)
 
+    #===========================================================================
+    # addToKnownPeers
+    #
+    # Adds the passed peer  to the known peers list.
+    # Removes the first peer in if the list has more than 15 elements.  
+    #===========================================================================
     def addToKnownPeers(self, peer):
         if not peer == (self.ownUsername, self.ownIP):
             if self.knownPeers.count(peer) == 0:
@@ -74,6 +113,14 @@ class Overlay:
                 if len(self.knownPeers) > 15:
                     self.knownPeers.pop(0)
                     
+    #===========================================================================
+    # addToNeighbours
+    #
+    # Adds the passed peer with its currency to the neighbor list.
+    # Returns:
+    # True, if the peer was added
+    # False, else
+    #===========================================================================
     def addToNeighbours(self, peer, currency):
         if (not peer == (self.ownUsername, self.ownIP)) and self.neighbors.count(peer) == 0 and len(self.neighbors) < 6:
             self.neighbors.append((peer[0], peer[1], currency))
@@ -81,6 +128,11 @@ class Overlay:
         else:
             return False
                     
+    #===========================================================================
+    # refreshNeighbours
+    #
+    # Trys to add max. 5 of the known peers to the neighbor list.
+    #===========================================================================
     def refreshNeighbours(self):
         number = 5
         if len(self.knownPeers) < 5:
@@ -90,7 +142,11 @@ class Overlay:
         for knownPeer in sample: 
             self.addToNeighbours(knownPeer, 2)
 
-            
+    #===========================================================================
+    # watchN2O
+    #
+    # Watches the incoming queue from the network layer.
+    #===========================================================================
     def watchN2O(self):
         print "Enter watchN2O()"
         while not self.__terminated:
@@ -108,6 +164,13 @@ class Overlay:
                 else:
                     print "Unknown message type"
             
+    #===========================================================================
+    # processping
+    #
+    # Processes the incoming 'ping' message.
+    # If TTL is high enough a ping is sent to all neighbors.
+    # If TTL = 1 a pong is sent to the sender of the ping.
+    #===========================================================================
     def processping(self, message):
         # incoming ping := ("ping", pingID, TTL, Hops, senderUsername, senderIP)
         # outgoing ping := ("ping", pingID, TTL, Hops, ownUsername, ownIP, targetIP)
@@ -137,6 +200,13 @@ class Overlay:
         else:
             print "Invalid ttl"
             
+    #===========================================================================
+    # processpong
+    #
+    # Processes the incoming 'pong' message.
+    # Adds own identity to the message and sends it to the former sender of the
+    # ping message. Then trys to fill the neighbor list.
+    #===========================================================================
     def processpong(self, message):
         # incoming pong := ("pong", ID, [(Username, IP), (Username2, IP2), ...])
         # outgoing pong := ("pong", ID, [(Username, IP), (Username2, IP2), ...], IP)
@@ -161,8 +231,13 @@ class Overlay:
 
         # refresh/fill neighbor list
         self.refreshNeighbours()
-
       
+    #===========================================================================
+    # checkCurrency
+    #
+    # Checks periodically whether the currency level of all neighbors is greater
+    # zero. If not the neighbor is removed.
+    #===========================================================================
     def checkCurrency(self):
         print "Enter checkCurrency()"
         
@@ -175,8 +250,12 @@ class Overlay:
                 if neighbor[2] > 0:
                     self.neighbors.append((neighbor[0], neighbor[1], neighbor[2] - 1))
                 self.neighbors.remove(neighbor)
-                
         
+    #===========================================================================
+    # watchA2O
+    #
+    # Watches the incoming queue from the application layer.
+    #===========================================================================
     def watchA2O(self):
         print "Enter watchA2O()"
         while not self.__terminated:
@@ -194,7 +273,13 @@ class Overlay:
                 else:
                     print "Unknown message type"
         
-        
+    #===========================================================================
+    # processIncRefFL
+    #
+    # Processes the incoming 'refresh file list' message.
+    # Trys to add peer to neighbors if he is not already one.
+    # If adding has success an urgent answer from application layer is requested.
+    #===========================================================================
     def processIncRefFL(self, message):
         print "Enter processIncRefFL()"
         
@@ -204,9 +289,13 @@ class Overlay:
             self.putToO2A((msgType, fileList, senderUsername, False))
         elif self.addToNeighbours((senderUsername, senderIP), 5):
             self.putToO2A((msgType, fileList, senderUsername, True))
-        
-        
-        
+
+    #===========================================================================
+    # processOutRefFL
+    #
+    # Processes the outgoing 'refresh file list' message.
+    # Sends the message to all neighbors.
+    #===========================================================================
     def processOutRefFL(self, message):
         print "Enter processOutRefFL()"
         
