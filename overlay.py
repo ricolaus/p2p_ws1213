@@ -30,9 +30,10 @@ class Overlay:
         self.knownPeers = []
         # list of all (~5) neighbors with structure: [(username, ip, currency level)]
         self.neighbors = []
-        # dictionary of received pings
-        # TODO: change to list with currency levels
-        self.ping = {}
+        # dictionary of received pings with structure: {msgID: (ip, currency level)}
+        self.pingDict = {}
+        # dictionary of received pongs with structure: {msgID: (ip, set((username, ip), ...), currency level)}
+        self.pongDict = {}
         # bool whether the program should terminate
         self.__terminated = False
         # ping to bootstrapping node
@@ -41,11 +42,14 @@ class Overlay:
         self.n2oThread = threading.Thread(target=self.watchN2O)
         self.n2oThread.start()
         # start thread which checks the currency for the neighbors
-        self.currencyThread = threading.Thread(target=self.checkCurrency)
-        self.currencyThread.start()
+        self.neighborCurrencyThread = threading.Thread(target=self.checkNeighborCurrency)
+        self.neighborCurrencyThread.start()
         # start thread which watches the incoming queue from application layer
         self.a2oThread = threading.Thread(target=self.watchA2O)
         self.a2oThread.start()
+        # start thread which checks the currency for the pings
+        self.pingPongCurrencyThread = threading.Thread(target=self.checkPingPongCurrency)
+        self.pingPongCurrencyThread.start()
     
     #===========================================================================
     # terminate
@@ -161,6 +165,13 @@ class Overlay:
                     # print "Reenter watchN2O() from processpong"
                 elif message[0] == "refFL":
                     self.processIncRefFL(message)
+                elif message[0] == "reqFile":
+                    pass
+                    # TODO:
+                    # self.processReqFile(message)
+                elif message[0] == "answerReg":
+                    pass
+                    # TODO:
                 else:
                     print "Unknown message type"
             
@@ -182,9 +193,9 @@ class Overlay:
         # add to/refresh knownPeers list
         self.addToKnownPeers((username, ip))
         
-        if (ttl > 1) and (msgID not in self.ping):
+        if (ttl > 1) and (msgID not in self.pingDict):
             # add to ping dictionary
-            self.ping[msgID] = ip
+            self.pingDict[msgID] = (ip, ttl)
             # if ttl is to high
             if ttl + hops > 7:
                 ttl = 7 - hops
@@ -192,11 +203,13 @@ class Overlay:
             for neighbor in self.neighbors: 
                 if not neighbor[0] == username:
                     self.putToO2N((msgType, msgID, ttl-1, hops+1, self.ownUsername, self.ownIP, neighbor[1]))
-        elif (ttl == 1) and (msgID not in self.ping):
+        elif (ttl == 1) and (msgID not in self.pingDict):
             # add to ping dictionary
-            self.ping[msgID] = ip
+            self.pingDict[msgID] = (ip, ttl)
             # send pong to sender
-            self.putToO2N(("pong", msgID, [(self.ownUsername, self.ownIP)], self.ping[msgID]))
+            self.putToO2N(("pong", msgID, [(self.ownUsername, self.ownIP)], self.pingDict[msgID][0]))
+        elif (msgID in self.pingDict):
+            print "Already got a ping entry with this message ID"
         else:
             print "Invalid ttl"
             
@@ -223,23 +236,32 @@ class Overlay:
         if peers.count((self.ownUsername, self.ownIP)) == 0:
             peers.append((self.ownUsername, self.ownIP))
         
-        # send pong to sender
-        if msgID in self.ping:
-            self.putToO2N((msgType, msgID, peers, self.ping[msgID]))
+        peerSet = set()
+        for peer in peers:
+            peerSet.add(peer)
+        
+        # save pong in pongDict
+        if msgID in self.pingDict:
+            # add new pong message with ip set of peers and currency level
+            self.pongDict[msgID] = (self.pingDict[msgID][0], peerSet, 5)
+        elif msgID in self.pongDict:
+            # add peers from further pong messages to peerSet
+            for p in self.pongDict[msgID][1]:
+                peerSet.add(p)
+            # add new pong message with ip set of peers and currency level
+            self.pongDict[msgID] = (self.pingDict[msgID][0], peerSet, 5)
         else:
-            print "Cannot forward pong because no ping with this id has arrived before"
+            print "Cannot save pong because no ping with this id has arrived before"
 
-        # refresh/fill neighbor list
-        self.refreshNeighbours()
       
     #===========================================================================
-    # checkCurrency
+    # checkNeighborCurrency
     #
     # Checks periodically whether the currency level of all neighbors is greater
     # zero. If not the neighbor is removed.
     #===========================================================================
-    def checkCurrency(self):
-        print "Enter checkCurrency()"
+    def checkNeighborCurrency(self):
+        print "Enter checkNeighborCurrency()"
         
         while not self.__terminated:
             
@@ -250,6 +272,38 @@ class Overlay:
                 if neighbor[2] > 0:
                     self.neighbors.append((neighbor[0], neighbor[1], neighbor[2] - 1))
                 self.neighbors.remove(neighbor)
+                
+    #===========================================================================
+    # checkPingPongCurrency
+    #
+    # Checks periodically whether the currency level of all pings is greater
+    # zero. If not the ping is removed.
+    #===========================================================================
+    def checkPingPongCurrency(self):
+        print "Enter checkPingPongCurrency()"
+        
+        while not self.__terminated:
+            
+            time.sleep(2)
+            
+            tmp = self.pingDict
+            for key in tmp.keys():
+                if self.pingDict[key][1] > 0:
+                    self.pingDict[key] = (self.pingDict[key][0], self.pingDict[key][1] - 1)
+                else:
+                    self.pingDict.pop(key)
+                    
+            tmp = self.pongDict
+            for key in tmp.keys():
+                if self.pongDict[key][2] > 0:
+                    self.pongDict[key] = (self.pongDict[key][0], self.pongDict[key][1], self.pongDict[key][2] - 1)
+                else:
+                    # finally send pong message
+                    self.putToO2N(("pong", key, self.pongDict[key][1], self.pongDict[key][0]))
+                    # refresh/fill neighbor list
+                    self.refreshNeighbours()
+                    # remove from dictionary
+                    self.pongDict.pop(key)                    
         
     #===========================================================================
     # watchA2O
@@ -266,9 +320,11 @@ class Overlay:
                     self.processOutRefFL(message)
                 elif message[0] == "reqFile":
                     pass
+                    # TODO:
                     # self.processReqFile(message)
                 elif message[0] == "answerReg":
                     pass
+                    # TODO:
                     # self.processAnswerReg(message)
                 else:
                     print "Unknown message type"
@@ -276,7 +332,7 @@ class Overlay:
     #===========================================================================
     # processIncRefFL
     #
-    # Processes the incoming 'refresh file list' message.
+    # Processes the incoming 'refresh file list' message from network layer.
     # Trys to add peer to neighbors if he is not already one.
     # If adding has success an urgent answer from application layer is requested.
     #===========================================================================
@@ -293,7 +349,7 @@ class Overlay:
     #===========================================================================
     # processOutRefFL
     #
-    # Processes the outgoing 'refresh file list' message.
+    # Processes the outgoing 'refresh file list' message to network layer.
     # Sends the message to all neighbors.
     #===========================================================================
     def processOutRefFL(self, message):
