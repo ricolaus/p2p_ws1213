@@ -16,14 +16,14 @@ class Overlay:
         self.ownIP = ip
         # list of known (max. 15) peers
         self.knownPeers = []
-        # list of all (5) neighbours
+        # list of all (~5) neighbours
         self.neighbours = []
         # dictionary of received pings
         self.ping = {}
         # bool wether the program should terminate
         self.__terminated = False
         # ping to bootstrapping node
-        self.putToOutQueue(("Ping", random.randrange(0, 9999, 1) , 4, 0, self.ownUsername, self.ownIP, bootstrappingIP))
+        self.putToOutQueue(("ping", random.randint(0, 9999) , 4, 0, self.ownUsername, self.ownIP, bootstrappingIP))
         # start thread which watches the incoming queue
         self.inQueueThread = threading.Thread(target=self.watchInQueue)
         self.inQueueThread.start()
@@ -56,13 +56,22 @@ class Overlay:
             if self.neighbours.count(peer) == 0:
                 if len(self.neighbours) < 5:
                     self.neighbours.append(peer)
+                    
+    def refreshNeighbours(self):
+        number = 5
+        if len(self.knownPeers) < 5:
+            number = len(self.knownPeers)
+            
+        sample = random.sample(self.knownPeers, number) 
+        for knownPeer in sample: 
+            self.addToNeighbours(knownPeer)
 
             
-    def processPing(self, message):
-        # incoming Ping := ("Ping", PingID, TTL, Hops, senderUsername, senderIP)
-        # outgoing Ping := ("Ping", PingID, TTL, Hops, ownUsername, ownIP, targetIP)
+    def processping(self, message):
+        # incoming ping := ("ping", pingID, TTL, Hops, senderUsername, senderIP)
+        # outgoing ping := ("ping", pingID, TTL, Hops, ownUsername, ownIP, targetIP)
         
-        print "Enter processPing()"
+        print "Enter processping()"
         
         msgType, id, ttl, hops, username, ip = message
         
@@ -83,15 +92,15 @@ class Overlay:
             # add to ping dictionary
             self.ping[id] = ip
             # send pong to sender
-            self.putToOutQueue(("Pong", id, [(self.ownUsername, self.ownIP)], self.ping[id]))
+            self.putToOutQueue(("pong", id, [(self.ownUsername, self.ownIP)], self.ping[id]))
         else:
             print "Invalid ttl"
             
-    def processPong(self, message):
-        # incomingPong := ("Pong", ID, [(Username, IP), (Username2, IP2), ...])
-        # outgoingPong := ("Pong", ID, [(Username, IP), (Username2, IP2), ...], IP)
+    def processpong(self, message):
+        # incomingpong := ("pong", ID, [(Username, IP), (Username2, IP2), ...])
+        # outgoingpong := ("pong", ID, [(Username, IP), (Username2, IP2), ...], IP)
         
-        print "Enter processPong()"
+        print "Enter processpong()"
         
         msgType, id, peers = message
         
@@ -110,8 +119,8 @@ class Overlay:
             print "Cannot forward pong because no ping with this id has arrived before"
 
         # refresh/fill neighbour list
-        for knownPeer in self.knownPeers: 
-            self.addToNeighbours(knownPeer)
+        self.refreshNeighbours()
+        
             
     def watchInQueue(self):
         print "Enter watchInQueue()"
@@ -119,12 +128,12 @@ class Overlay:
             message = ()
             if not self.inQueue.empty():
                 message = self.getFromInQueue()
-                if message[0] == "Ping":
-                    self.processPing(message)
-                    # print "Reenter watchInQueue() from processPing"
-                elif message[0] == "Pong":
-                    self.processPong(message)
-                    # print "Reenter watchInQueue() from processPong"
+                if message[0] == "ping":
+                    self.processping(message)
+                    # print "Reenter watchInQueue() from processping"
+                elif message[0] == "pong":
+                    self.processpong(message)
+                    # print "Reenter watchInQueue() from processpong"
                 else:
                     print "Unknown message type"
             # WARNING: the thread will terminate if the queue is empty
