@@ -244,12 +244,13 @@ class Overlay:
         if msgID in self.pingDict:
             # add new pong message with ip set of peers and currency level
             self.pongDict[msgID] = (self.pingDict[msgID][0], peerSet, 5)
+            self.pingDict.pop(msgID)
         elif msgID in self.pongDict:
             # add peers from further pong messages to peerSet
             for p in self.pongDict[msgID][1]:
                 peerSet.add(p)
             # add new pong message with ip set of peers and currency level
-            self.pongDict[msgID] = (self.pingDict[msgID][0], peerSet, 5)
+            self.pongDict[msgID] = (self.pongDict[msgID][0], peerSet, self.pongDict[msgID][2])
         else:
             print "Cannot save pong because no ping with this id has arrived before"
 
@@ -284,7 +285,7 @@ class Overlay:
         
         while not self.__terminated:
             
-            time.sleep(2)
+            time.sleep(1)
             
             tmp = self.pingDict
             for key in tmp.keys():
