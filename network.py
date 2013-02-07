@@ -26,9 +26,14 @@ class Network(object):
 	def __test1(self):
 		print "test1 start"
 		while True:
-			#print "Hallo"
-			zahl = random.randint(0, 10)
-			sendQueue.put(("127.0.0.1", portSend, str(zahl)))
+			case = random.randint(0, 1)
+			if case == 0:
+				#print "Hallo"
+				zahl = random.randint(0, 10)
+				sendQueue.put(("message", "127.0.0.1", portSend, str(zahl)))
+			else:
+				print "filetransfer"
+				sendQueue.put(("filetrans", "127.0.0.1", portSend, "filetrans"))
 			time.sleep(random.uniform(0.1,3.0))
 			if eingabe == "ende":
 				break
@@ -39,22 +44,65 @@ class Network(object):
 		print "test2 ende"
 
 	def __send(self, ip, port, nachricht):
+		hatshi = ""
 		try:
 			sockSend = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		except socket.error as msg:
 			sockSend = None
 		try:
-			nachricht = self.__calcHash(nachricht) + nachricht
+			hatshi = self.__calcHash(nachricht)
+			nachricht = hatshi + nachricht
 			nachricht = self.__ip + ";" + str(self.__portRecv) + ";" + nachricht
 			sockSend.sendto(nachricht, (ip, port))
 		except socket.error as msg:
 			sockSend.close()
 			sockSend = None
-		print "[SEND] " + str(ip) + ":" + str(port) + " sendet eine " + nachricht
+		print "[SEND] " + str(ip) + ":" + str(port) + " sendet " + nachricht
 		try:
 			sockSend.close()
 		except socket.error as msg:
 			sockSend = None
+		return hatshi
+
+	def __recvTCP(self, port, data):
+		hatshi = ""
+		try:
+			sockRecv = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+			sockRecv.bind(("", port)) 
+			sockRecv.settimeout(2)
+			sockRecv.listen(1)
+		except socket.error as msg:
+			sockRecv = None
+			print msg
+		try:
+			while True: 
+				print "warte auf TCP1"
+				try:
+					con, addr = sockRecv.accept()
+				except socket.timeout:
+					print "Timeout abgelaufen"
+					if eingabe == "ende":
+						break
+					continue
+				print "warte auf TCP2"
+				while True: 
+					data = con.recv(BUFFERSIZE_TCP)
+					if not data: 
+ 						con.close() 
+						break
+					print "[%s] %s" % (addr[0], data) 
+					#nachricht = raw_input("Antwort: ") 
+					#con.send(nachricht)
+				if eingabe == "ende":
+					break
+		except socket.error as msg:
+			sockRecv.close()
+			sockRecv = None
+	#	print "[SEND] " + str(ip) + ":" + str(port) + " sendet " + nachricht
+		try:
+			sockRecv.close()
+		except socket.error as msg:
+			sockRecv = None
         
 	def __sendUdp(self):
 		print "sendUdp start"
@@ -64,27 +112,35 @@ class Network(object):
 	#		if eingabe == "ende":
 	#			break
 			index = 1
+			hatshi0 = ""
+			hatshi1 = ""
 			try:
-				(sendIP, sendPort, nachricht) = sendQueue.get(True, 1.0)
-				self.__send(sendIP, sendPort, nachricht)
-				while True:
-	#				print "huhu"
-					receipt = ""	
-					try:
-						receipt = receiptQueue.get(True, 1.0)
-	#					print receipt
-					except Queue.Empty:
-						if index == 10:
-							#Ansage nach oben das Host nicht erreichbar ist
-							print "Host nicht erreichbar"
+				(sendCase, sendIP, sendPort, nachricht) = sendQueue.get(True, 1.0)
+				if sendCase == "message":
+					hatshi0 = self.__send(sendIP, sendPort, nachricht)
+					while True:
+	#					print "huhu"
+						receipt = ""	
+						try:
+							receipt = receiptQueue.get(True, 1.0)
+							hatshi1 = receipt[0:HASHLENGTH]
+							receipt = receipt[HASHLENGTH:]
+	#						print receipt
+						except Queue.Empty:
+							if index == 10:
+								#Ansage nach oben das Host nicht erreichbar ist
+								print "Host nicht erreichbar"
+								break
+							if eingabe == "ende":
+								return
+							self.__send(sendIP, sendPort, nachricht)
+							index = index + 1
+						if receipt == "True" and hatshi0 == hatshi1:
+	#						print "ABBRECHEN"
 							break
-						if eingabe == "ende":
-							return
-						self.__send(sendIP, sendPort, nachricht)
-						index = index + 1
-					if receipt == "True":
-	#					print "ABBRECHEN"
-						break
+				else:
+					print "UDPsend filetrans"
+					self.__recvTCP(60000, "hallo welt")
 			except Queue.Empty:
 				if eingabe == "ende":
 					break
@@ -105,7 +161,7 @@ class Network(object):
 			daten = ""
 			addr = ""
 			try:
-				daten, addr = sockRecv.recvfrom(BUFFERSIZE)
+				daten, addr = sockRecv.recvfrom(BUFFERSIZE_UDP)
 				(senderIP, senderPort, daten) = re.split(r";", daten)
 				nachricht = daten[HASHLENGTH:]
 				hatshi0 = str(self.__calcHash(nachricht))
@@ -116,7 +172,7 @@ class Network(object):
 			if not(daten == ""):
 				if nachricht[HASHLENGTH:] == "True":
 		#			print "Quittung erhalten"
-					receiptQueue.put("True")
+					receiptQueue.put(nachricht)
 				else:
 					if hatshi0 == hatshi1:
 						hashTest = True
@@ -150,7 +206,8 @@ receiptQueue = Queue.Queue()
 
 eingabe = ""
 HASHLENGTH = 5
-BUFFERSIZE = 1024
+BUFFERSIZE_UDP = 1024
+BUFFERSIZE_TCP = 1024
 
 network = Network(ip, portRecv)
 network.run()
