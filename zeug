@@ -1,0 +1,54 @@
+nachbarschaft aushandeln, aktuell halten, verteilen von Fileliste, basierend auf refFl:
+
+senden von refFL
+
+applikation: periodisches senden der refFL + Filleist nachricht an das overlay, dabei wird immer auch der ordnerinhalt überprüft
+-> overlay : versendet refFL an alle nachbarn und überwacht die aktuelle nachbarzahl, falls zu wenige vorhanden,
+			 wird refFl an eine zufällige zahl bekannter clients versendet, falls zu wenige vorhanden, ping senden
+->netzwerk : verteilt refFl an angegebene nachbarn+clients
+
+empfangen von refFl
+
+->netzwerk: hochreichen der nachricht ans overlay
+->overlay : 1.falls vorhanden eintrag des senders in der nachbarliste der refFl aktualiesiert(currency)
+			und nach refFl an appliktion weiterreichen
+			2.falls nicht vorhanden: 2.1 zur nachbarliste hinzufügen und refFl an applikation mit urgent flag hochreichen
+									 2.1 nicht zur nachbarliste hinzufügen und refFl verwerfen
+->applikation:vergleicht filelist wenn neue enthalten oder 
+
+!apllikation zusaetzlich liste mit gerade angefragten parts und wer danach gefragt wurde
+!netzwerk sagt, am uebertragen, fertig/fehler
+!applikatioin tabelle mit dateien von denen man noch keinen part hat
+
+File/Partlist-Vormat??????
+gemeinsame liste?
+wie parts-files unterscheiden?
+!name, hash, vollstaendig oder noch unvollstaendige partliste, insgesamte anz parts
+name/part-name , hash?, erzeuger?, timestamp?, größe?, gesamtGröße?, x-ter part von welcher datei
+
+file/part-request:
+ausgelöst durch empfangen und vergleichen von refFl in der apllikation, betroffene part werden angefragt(alle?)
+sollen alle Parts in die refFl oder nur die von nicht ganzen dateien oder partanzahl/dateigroeße bei standart partgröße
+
+
+parts:
+welche größe?
+!xml datei evtl. am anfang partliste und spaeter einzelne parts TAG pro part originaldatei-name, -hash, partNr., partdaten
+!gleiche größe bei  allen files?
+
+!eine teilungsebene oder 2(parts und subparts)?        eine 
+bezeichnung: x-Teil-Datei?
+wie parts nichtflüchtig speichern?, extra datei für alle parts? überhaupt sinnoll? vllt parts nur im Hauptspeicher? welche schicht zustaendig?
+
+
+gleiche namen und/oder updates??????????:
+
+1.nicht betrachten
+2.namenskonvention bei gleicher datei mit hash/timestamp wasauchimmer unterscheiden? - ziemlich doof 
+		damit muss klar sein dass keine einen solchen namen einfach so benutzt? sonst kollision möglich, wie behandeln?
+	programminterner- vs. fs-name? gleich?
+!in der fileliste wird der originale filename verwendet zusaetzlicher eintrag hash
+!lokal im fs wird ne versionsnummer nach konvention angehaegt
+		
+löschen ermöglichen:
+nur durch ersteller, extra löschen-nachricht verwenden, ziemlich doof
