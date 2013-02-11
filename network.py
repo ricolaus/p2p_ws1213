@@ -34,11 +34,13 @@ class Network(object):
 	def __test1(self):
 		print "test1 start"
 		while True:
-			case = random.randint(0, 1)
+			case = 0 #random.randint(0, 1)
 			if case == 0:
 				#print "Hallo"
-				zahl = random.randint(0, 10)
-				sendQueue.put(("message", "127.0.0.1", portSend, str(zahl)))
+				message = ""
+				for i in range(64-29): 
+					message = message + str(random.randint(0, 9))
+				sendQueue.put(("message", "127.0.0.1", portSend, message))
 			else:
 	#			print "fileTransfer"
 				sendQueue.put(("fileTransfer", "127.0.0.1", portSend, "files/filetrans"))
@@ -72,7 +74,6 @@ class Network(object):
 		except socket.error as msg:
 			sockSend = None
 		return hatshi
-
 	def __recvTCP(self, port, data):
 	#	print "recvTCP start ", port
 		hatshi = ""
@@ -117,12 +118,14 @@ class Network(object):
 						index = index + 1
 						if eingabe == "ende":
 							break
-				(stat, filo, hatshi) = re.split(r";", antwort)
+				(stat, filo, hatshi) = antwort.split(";", 2)
 		#		print "%s mit %s und Hash %s" % (stat, filo, hatshi)
 				if stat == "LETSGOON":
 					con.send("LETSGOON")
 		#			print "send LETSGOON"
 					recvData = ""
+					bitRate = 0
+					bitRateCounter = 0
 					while True:
 						start = datetime.now().microsecond
 						data = con.recv(BUFFERSIZE_FILE)
@@ -130,12 +133,14 @@ class Network(object):
 							break
 						recvData = recvData + data
 						ende = datetime.now().microsecond
-						bitRate = float(len(data)*8) / float((ende - start))
-						print "Transferate %0.3f Mbit/s" % bitRate
+						bitRate = bitRate + float(len(data)*8) / float((ende - start))
+						bitRateCounter = bitRateCounter + 1
+					print "Transferate %0.3f Mbit/s" % (bitRate / bitRateCounter)
 					filoName = "files/testfile" + str(time.clock())
 					filo = open(filoName,"wb")
 					filo.write(recvData)
 					filo.close()
+					print datetime.now().microsecond
 					self.__portQueue.put(port)
 					break
 		except socket.error as msg:
@@ -259,7 +264,7 @@ class Network(object):
 			addr = ""
 			try:
 				daten, addr = sockRecv.recvfrom(BUFFERSIZE_UDP)
-				(senderIP, senderPort, daten) = re.split(r";", daten)
+				(senderIP, senderPort, daten) = daten.split(";", 2)
 				nachricht = daten[HASHLENGTH:]
 				hatshi0 = str(self.__calcHash(nachricht))
 				hatshi1 = daten[0:HASHLENGTH]
@@ -268,6 +273,7 @@ class Network(object):
 			except socket.timeout:
 				if eingabe == "ende":
 					break
+				continue
 			if not(daten == "") and (hatshi0 == hatshi1):
 				if stat == "RECEBACK":
 		#			print "Quittung erhalten"
@@ -277,7 +283,7 @@ class Network(object):
 		#			sendQueue.put(hashi + "True")
 					print "[RECV] %s %s %s %s %s" % (addr[0], addr[1], senderIP, senderPort, nachricht)
 				elif stat == "FILETRAN":
-					(senderPort, nachricht) = re.split(r",", nachricht)
+					(senderPort, nachricht) = nachricht.split(",", 1)
 					threadTCP = Thread(target=self.__sendTCP, args=(senderIP, senderPort, nachricht))
 					self.__threadArray.append(threadTCP)
 					threadTCP.start()
