@@ -54,26 +54,6 @@ class Network(object):
 		print "test2 start"
 		print "test2 ende"
 
-	def __send(self, ip, port, nachricht):
-		hatshi = ""
-		try:
-			sockSend = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		except socket.error as msg:
-			sockSend = None
-		try:
-			hatshi = self.__calcHash(nachricht)
-			nachricht = hatshi + nachricht
-			nachricht = self.__ip + ";" + str(self.__portRecv) + ";" + nachricht
-			sockSend.sendto(nachricht, (ip, port))
-		except socket.error as msg:
-			sockSend.close()
-			sockSend = None
-		print "[SEND] " + str(ip) + ":" + str(port) + " sendet " + nachricht
-		try:
-			sockSend.close()
-		except socket.error as msg:
-			sockSend = None
-		return hatshi
 	def __recvTCP(self, port, data):
 	#	print "recvTCP start ", port
 		hatshi = ""
@@ -202,6 +182,27 @@ class Network(object):
 		finally: 
 			sockSend.close()
 	#	print "sendTCP ende"
+
+	def __send(self, ip, port, nachricht):
+		hatshi = ""
+		try:
+			sockSend = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		except socket.error as msg:
+			sockSend = None
+		try:
+			hatshi = self.__calcHash(nachricht)
+			nachricht = hatshi + nachricht
+			nachricht = self.__ip + ";" + str(self.__portRecv) + ";" + nachricht
+			sockSend.sendto(nachricht, (ip, port))
+		except socket.error as msg:
+			sockSend.close()
+			sockSend = None
+		print "[SEND] " + str(ip) + ":" + str(port) + " sendet " + nachricht
+		try:
+			sockSend.close()
+		except socket.error as msg:
+			sockSend = None
+		return hatshi
         
 	def __sendUdp(self):
 		print "sendUdp start"
