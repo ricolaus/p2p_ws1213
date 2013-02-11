@@ -38,7 +38,8 @@ class Network(object):
 			if case == 0:
 				#print "Hallo"
 				message = ""
-				for i in range(64-29): 
+				testRange = random.randint(35, 9000)
+				for i in range(testRange): #35 bei 64 Byte
 					message = message + str(random.randint(0, 9))
 				sendQueue.put(("message", "127.0.0.1", portSend, message))
 			else:
@@ -183,47 +184,48 @@ class Network(object):
 			sockSend.close()
 	#	print "sendTCP ende"
 
-	def __send(self, ip, port, nachricht):
+	def __send(self, ip, port, stat, nachricht):
 		hatshi = ""
-		try:
-			sockSend = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		except socket.error as msg:
-			sockSend = None
-		try:
-			hatshi = self.__calcHash(nachricht)
-			nachricht = hatshi + nachricht
-			nachricht = self.__ip + ";" + str(self.__portRecv) + ";" + nachricht
-			sockSend.sendto(nachricht, (ip, port))
-		except socket.error as msg:
-			sockSend.close()
-			sockSend = None
-		print "[SEND] " + str(ip) + ":" + str(port) + " sendet " + nachricht
-		try:
-			sockSend.close()
-		except socket.error as msg:
-			sockSend = None
-		return hatshi
-        
-	def __sendUdp(self):
-		print "sendUdp start"
-		
-		while True:
-	#		print "Hallo"
-	#		if eingabe == "ende":
-	#			break
-			index = 1
-			hatshi0 = ""
-			hatshi1 = ""
+		partQueue = Queue.Queue()
+	#	print len(nachricht)
+		nachricht = stat + ";" + nachricht
+		partSize = BUFFERSIZE_UDP - 33
+		lenNachricht = len(nachricht)
+		if lenNachricht > ((BUFFERSIZE_UDP - 33) * 255):
+			print "Nachricht zu lang"
+			return False
+		partCount = lenNachricht // (partSize)
+		partLenLast = lenNachricht % (partSize)
+		if partLenLast == 0:
+			partCount = partCount - 1
+		print "partSize: %d partCount: %d partLenLast: %d errechnet: %d tatsaechlich: %d" % (partSize, partCount, partLenLast, (partCount * partSize + partLenLast), lenNachricht)
+		for i in range(partCount):
+			fromIndex = partSize * i
+			toIndex = (partSize * i) + partSize
+			partQueue.put((i + 1, partCount + 1, nachricht[fromIndex:toIndex]))
+	#		print "%s von %d bis %d" % (nachricht[fromIndex:toIndex], fromIndex, toIndex)
+		if partLenLast > 0:
+			fromIndex = partSize * partCount
+			toIndex = (partSize * partCount) + partLenLast
+			partQueue.put((partCount + 1, partCount + 1, nachricht[fromIndex:toIndex]))
+	#	print "%s von %d bis %d" % (nachricht[fromIndex:toIndex], fromIndex, toIndex)
+		for i in range(partCount + 1):		
 			try:
-				(sendCase, sendIP, sendPort, nachricht) = sendQueue.get(True, 1.0)
-				if sendCase == "message":
-					hatshi0 = self.__send(sendIP, sendPort, "OVERSTAT" + nachricht)
+				sockSend = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+				sendStat = False
+				(part, partCount, partNachricht) = partQueue.get()
+				partNachricht = str(hex(part)[2:4]) + ";" + str(hex(partCount)[2:4]) + ";" + self.__ip + ";" + str(self.__portRecv) + ";" + partNachricht
+				hatshi0 = self.__calcHash(partNachricht)
+				partNachricht = hatshi0 + ";" + partNachricht
+				sockSend.sendto(partNachricht, (ip, port))
+				print "[SEND0] " + str(ip) + ":" + str(port) + " sendet " + partNachricht
+				if stat == "OVERSTAT":
+	#				print "[HUHUHUHU]" + stat
+					index = 1
+					receStat = ""		
 					while True:
-	#					print "huhu"
-						receipt = ""	
 						try:
-							hatshi1 = receiptQueue.get(True, 1.0)
-	#						print receipt
+							receStat, hatshi1 = receiptQueue.get(True, 1.0)
 						except Queue.Empty:
 							if index == 10:
 								#Ansage nach oben das Host nicht erreichbar ist
@@ -231,18 +233,40 @@ class Network(object):
 								break
 							if eingabe == "ende":
 								return
-							self.__send(sendIP, sendPort, nachricht)
-							index = index + 1
-						if hatshi0 == hatshi1:
+						if (receStat == "True") and (hatshi0 == hatshi1):
 	#						print "ABBRECHEN"
+							sendStat = True
 							break
+						else:
+							sockSend.sendto(partNachricht, (ip, port))
+							print "[SEND1] " + str(ip) + ":" + str(port) + " sendet " + partNachricht
+							index = index + 1
+				else:
+					sendStat = True
+	#				print "[SEND] " + str(ip) + ":" + str(port) + " sendet " + partNachricht
+			except socket.error as msg:
+				sockSend = None
+			finally: 
+				sockSend.close()
+		return sendStat
+        
+	def __sendUdp(self):
+		print "sendUdp start"
+		while True:
+			try:
+				(sendCase, sendIP, sendPort, nachricht) = sendQueue.get(True, 1.0)
+				if sendCase == "message":
+					sendStat = self.__send(sendIP, sendPort, "OVERSTAT", nachricht)
+					if sendStat == False:
+						doNothing = True
+	#					Ansage nach oben
 				elif sendCase == "fileTransfer":
 	#				print "UDPsend filetrans"
 					sendPortTcp = self.__portQueue.get()
 					threadTCP = Thread(target=self.__recvTCP, args=(sendPortTcp, "hallo welt"))
 					self.__threadArray.append(threadTCP)
 					threadTCP.start()
-					self.__send(sendIP, sendPort, "FILETRAN" + str(sendPortTcp) + "," + nachricht)
+					self.__send(sendIP, sendPort, "FILETRAN", str(sendPortTcp) + "," + nachricht)
 	#				self.__recvTCP(sendPortTcp, "hallo welt")
 			except Queue.Empty:
 				if eingabe == "ende":
@@ -258,40 +282,57 @@ class Network(object):
 		sockRecv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		sockRecv.bind((self.__ip, self.__portRecv))
 		sockRecv.settimeout(1.0)
+		recvDict = {}
+		recvType = ""
 		while True:
-			if eingabe == "ende":
-				break
-			daten = ""
-			addr = ""
 			try:
 				daten, addr = sockRecv.recvfrom(BUFFERSIZE_UDP)
-				(senderIP, senderPort, daten) = daten.split(";", 2)
-				nachricht = daten[HASHLENGTH:]
-				hatshi0 = str(self.__calcHash(nachricht))
-				hatshi1 = daten[0:HASHLENGTH]
-				stat = nachricht[0:8]
-				nachricht = nachricht[8:]
+	#			print daten + " " + str(addr)
+				(hashi1, daten) = daten.split(";", 1)
+				hatshi0 = str(self.__calcHash(daten))
+				(part, partCount, senderIP, senderPort, nachricht) = daten.split(";", 4)
+				part = int(part, 16)
+				partCount = int(partCount,16)
+				recvDict[(part, partCount, senderIP, senderPort)] = nachricht
+				if nachricht[:8] == "OVERSTAT":
+					recvType = "OVERSTAT"
+				if recvType == "OVERSTAT":				
+					self.__send(senderIP, int(senderPort), "RECEBACK", "True;" + hashi1)
+				if part == partCount:
+					nachricht =  ""
+					for i in range(partCount):
+						nachricht = nachricht + recvDict[(i + 1, partCount, senderIP, senderPort)]
+						del recvDict[(i + 1, partCount, senderIP, senderPort)]
+	#				print "[NACHRICHT] " + nachricht
+					self.__recvUdp2(nachricht, addr, senderIP, senderPort)
+					recvType = ""
+					continue
+	#			print "%s %s %s %s %s %s" % (hashi1, part, partCount, senderIP, senderPort, nachricht)
 			except socket.timeout:
 				if eingabe == "ende":
 					break
 				continue
-			if not(daten == "") and (hatshi0 == hatshi1):
-				if stat == "RECEBACK":
-		#			print "Quittung erhalten"
-					receiptQueue.put(nachricht)
-				elif stat == "OVERSTAT":
-					self.__send(senderIP, int(senderPort), "RECEBACK" + hatshi1)
-		#			sendQueue.put(hashi + "True")
-					print "[RECV] %s %s %s %s %s" % (addr[0], addr[1], senderIP, senderPort, nachricht)
-				elif stat == "FILETRAN":
-					(senderPort, nachricht) = nachricht.split(",", 1)
-					threadTCP = Thread(target=self.__sendTCP, args=(senderIP, senderPort, nachricht))
-					self.__threadArray.append(threadTCP)
-					threadTCP.start()
-		#			print "%s will an Port %s das File %s" % (senderIP, senderPort, nachricht)
-			#time.sleep(0.1)
+			#self.__recvUdp2(daten, addr)
 		sockRecv.close()
 		print "recvUdp ende"
+
+	def __recvUdp2(self, nachricht, addr, senderIP, senderPort):
+		(stat, nachricht) = nachricht.split(";", 1)
+		print "[RECV] %s:%s nach %s %s %s" % (addr[0], addr[1], senderIP, senderPort, nachricht)
+		if not(nachricht == ""):
+			if stat == "RECEBACK":
+				(stat, nachricht) = nachricht.split(";", 1)
+				receiptQueue.put((stat, nachricht))
+			elif stat == "OVERSTAT":
+				#self.__send(senderIP, int(senderPort), "RECEBACK", "True;" + hatshi1)
+				doNothing = True
+	#			print "[DAS GEHT NACH OBEN] " + nachricht
+			elif stat == "FILETRAN":
+				(senderPort, nachricht) = nachricht.split(",", 1)
+				threadTCP = Thread(target=self.__sendTCP, args=(senderIP, senderPort, nachricht))
+				self.__threadArray.append(threadTCP)
+				threadTCP.start()
+		return True
  
 
 
@@ -315,9 +356,17 @@ receiptQueue = Queue.Queue()
 
 eingabe = ""
 HASHLENGTH = 5
-BUFFERSIZE_UDP = 1024
+BUFFERSIZE_UDP = 63
 BUFFERSIZE_TCP = 1024
 BUFFERSIZE_FILE = 65536
+
+#test = hex(255)
+#print "11 %d" % int(test[2:], 16)
+
+#test = 10 // 3
+#print test
+#test = 10 % 3
+#print test
 
 network = Network(ip, portRecv, startTcpPort, countTcpPort)
 network.run()
