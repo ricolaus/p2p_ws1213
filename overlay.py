@@ -169,7 +169,7 @@ class Overlay:
                     pass
                     # TODO:
                     # self.processReqFile(message)
-                elif message[0] == "answerReg":
+                elif message[0] == "answerReq":
                     pass
                     # TODO:
                 else:
@@ -323,7 +323,7 @@ class Overlay:
                     pass
                     # TODO:
                     # self.processReqFile(message)
-                elif message[0] == "answerReg":
+                elif message[0] == "answerReq":
                     pass
                     # TODO:
                     # self.processAnswerReg(message)
