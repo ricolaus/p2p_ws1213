@@ -12,7 +12,7 @@ class Overlay:
     # Sends the first (bootstrapping) 'ping' message.
     # Starts all threads.
     #===========================================================================
-    def __init__(self, username, ip, bootstrappingIP, q1, q2, q3, q4):
+    def __init__(self, username, ip, port, bootstrappingIP, bootstrappingPort, q1, q2, q3, q4):
         print "Enter constructor of overlay"
         # incoming queue from network layer
         self.n2o = q1
@@ -26,18 +26,22 @@ class Overlay:
         self.ownUsername = username
         # own ip
         self.ownIP = ip
-        # list of known (max. 15) peers with structure: [(username, ip)]
+        # own port
+        self.ownPort = port
+        # own identifier := ip:port
+        self.ownIdentifier = str(ip) + ":" + str(port)
+        # list of known (max. 15) peers with structure: [(username, identifier)]
         self.knownPeers = []
-        # list of all (~5) neighbors with structure: [(username, ip, currency level)]
+        # list of all (~5) neighbors with structure: [(username, identifier, currency level)]
         self.neighbors = []
-        # dictionary of received pings with structure: {msgID: (ip, currency level)}
+        # dictionary of received pings with structure: {msgID: (identifier, currency level)}
         self.pingDict = {}
-        # dictionary of received pongs with structure: {msgID: (ip, set((username, ip), ...), currency level)}
+        # dictionary of received pongs with structure: {msgID: (identifier, set((username, identifier), ...), currency level)}
         self.pongDict = {}
         # bool whether the program should terminate
         self.__terminated = False
         # ping to bootstrapping node
-        self.putToO2N(("ping", random.randint(0, 9999) , 4, 0, self.ownUsername, self.ownIP, bootstrappingIP))
+        self.putToO2N(("ping", random.randint(0, 9999) , 4, 0, self.ownUsername, self.ownIP, self.ownPort, bootstrappingIP, bootstrappingPort))
         # start thread which watches the incoming queue from network layer
         self.n2oThread = threading.Thread(target=self.watchN2O)
         self.n2oThread.start()
@@ -61,12 +65,21 @@ class Overlay:
         self.__terminated = True
     
     #===========================================================================
+    # splitIpAndPort
+    #
+    # Splits the string consisting of ip and port an returns a pair.
+    #===========================================================================
+    def splitIpAndPort(self, string):
+        # print("Enter splitIpAndPort()")
+        return string.split(":", 1)
+    
+    #===========================================================================
     # getFromN2O
     #
     # Gets a message from the incoming queue from the network.
     #===========================================================================
     def getFromN2O(self):
-        print "Enter getFromN2O()"
+        # print "Enter getFromN2O()"
         message = ()
         if self.n2o:
             message = self.n2o.get(True)
@@ -78,7 +91,7 @@ class Overlay:
     # Puts a message into the outgoing queue to the network.
     #===========================================================================
     def putToO2N(self, message):
-        print "Enter putToO2N()"
+        # print "Enter putToO2N()"
         if self.o2n:
             self.o2n.put(message, True)
             
@@ -88,7 +101,7 @@ class Overlay:
     # Gets a message from the incoming queue from the application.
     #===========================================================================
     def getFromA2O(self):
-        print "Enter getFromA2O()"
+        # print "Enter getFromA2O()"
         message = ()
         if self.a2o:
             message = self.a2o.get(True)
@@ -100,7 +113,7 @@ class Overlay:
     # Puts a message into the outgoing queue to the application.
     #===========================================================================
     def putToO2A(self, message):
-        print "Enter putToO2A()"
+        # print "Enter putToO2A()"
         if self.o2a:
             self.o2a.put(message, True)
 
@@ -111,7 +124,7 @@ class Overlay:
     # Removes the first peer in if the list has more than 15 elements.  
     #===========================================================================
     def addToKnownPeers(self, peer):
-        if not peer == (self.ownUsername, self.ownIP):
+        if not peer == (self.ownUsername, self.ownIdentifier):
             if self.knownPeers.count(peer) == 0:
                 self.knownPeers.append(peer)
                 if len(self.knownPeers) > 15:
@@ -126,7 +139,7 @@ class Overlay:
     # False, else
     #===========================================================================
     def addToNeighbours(self, peer, currency):
-        if (not peer == (self.ownUsername, self.ownIP)) and self.neighbors.count(peer) == 0 and len(self.neighbors) < 6:
+        if (not peer == (self.ownUsername, self.ownIdentifier)) and self.neighbors.count(peer) == 0 and len(self.neighbors) < 6:
             self.neighbors.append((peer[0], peer[1], currency))
             return True
         else:
@@ -166,12 +179,7 @@ class Overlay:
                 elif message[0] == "refFL":
                     self.processIncRefFL(message)
                 elif message[0] == "reqFile":
-                    pass
-                    # TODO:
-                    # self.processReqFile(message)
-                elif message[0] == "answerReq":
-                    pass
-                    # TODO:
+                    self.processIncReqFile(message)
                 else:
                     print "Unknown message type"
             
@@ -188,26 +196,33 @@ class Overlay:
         
         print "Enter processping()"
         
-        msgType, msgID, ttl, hops, username, ip = message
+        msgType, msgID, ttl, hops, username, ip, port = message
+        
+        identifier = str(ip) + ":" + str(port)
         
         # add to/refresh knownPeers list
-        self.addToKnownPeers((username, ip))
+        self.addToKnownPeers((username, identifier))
         
         if (ttl > 1) and (msgID not in self.pingDict):
             # add to ping dictionary
-            self.pingDict[msgID] = (ip, ttl)
+            self.pingDict[msgID] = (identifier, ttl)
             # if ttl is to high
             if ttl + hops > 7:
                 ttl = 7 - hops
             # send ping to each neighbor
             for neighbor in self.neighbors: 
                 if not neighbor[0] == username:
-                    self.putToO2N((msgType, msgID, ttl-1, hops+1, self.ownUsername, self.ownIP, neighbor[1]))
+                    # split identifier
+                    targetIP, targetPort = self.splitIpAndPort(neighbor[1])
+                    # send ping to neighbor
+                    self.putToO2N((msgType, msgID, ttl-1, hops+1, self.ownUsername, self.ownIP, self.ownPort, targetIP, int(targetPort)))
         elif (ttl == 1) and (msgID not in self.pingDict):
             # add to ping dictionary
-            self.pingDict[msgID] = (ip, ttl)
+            self.pingDict[msgID] = (identifier, ttl)
+            # split identifier
+            targetIP, targetPort = self.splitIpAndPort(self.pingDict[msgID][0])
             # send pong to sender
-            self.putToO2N(("pong", msgID, [(self.ownUsername, self.ownIP)], self.pingDict[msgID][0]))
+            self.putToO2N(("pong", msgID, [(self.ownUsername, self.ownIP, self.ownPort)], targetIP, int(targetPort)))
         elif (msgID in self.pingDict):
             print "Already got a ping entry with this message ID"
         else:
@@ -221,20 +236,25 @@ class Overlay:
     # ping message. Then trys to fill the neighbor list.
     #===========================================================================
     def processpong(self, message):
-        # incoming pong := ("pong", ID, [(Username, IP), (Username2, IP2), ...])
-        # outgoing pong := ("pong", ID, [(Username, IP), (Username2, IP2), ...], IP)
+        # incoming pong := ("pong", ID, [(Username, IP, Port), (Username2, IP2, Port2), ...])
+        # outgoing pong := ("pong", ID, [(Username, IP, Port), (Username2, IP2, Port2), ...], targetIP, targetPort)
         
         print "Enter processpong()"
         
-        msgType, msgID, peers = message
+        msgType, msgID, origPeers = message
+        peers = []
+        
+        # concatenate ip and port
+        for origPeer in origPeers:
+            peers.append((origPeer[0], (str(origPeer[1]) + ":" + str(origPeer[2])) )) 
         
         # refresh own peers list
         for peer in peers: 
             self.addToKnownPeers(peer)
         
         # add own identity to peers list
-        if peers.count((self.ownUsername, self.ownIP)) == 0:
-            peers.append((self.ownUsername, self.ownIP))
+        if peers.count((self.ownUsername, self.ownIdentifier)) == 0:
+            peers.append((self.ownUsername, self.ownIdentifier))
         
         peerSet = set()
         for peer in peers:
@@ -299,8 +319,18 @@ class Overlay:
                 if self.pongDict[key][2] > 0:
                     self.pongDict[key] = (self.pongDict[key][0], self.pongDict[key][1], self.pongDict[key][2] - 1)
                 else:
+                    peerList = []
+                    # create from a set of (username, identifier) tuples a list of (username, ip, port) tuples
+                    for username, identifier in self.pongDict[key][1]:
+                        # split identifier
+                        tmpTargetIP, tmpTargetPort = self.splitIpAndPort(identifier)
+                        # add tuple to the new list
+                        peerList.append((username, tmpTargetIP, tmpTargetPort))
+                        
+                    # split target identifier
+                    targetIP, targetPort = self.splitIpAndPort(self.pongDict[key][0])
                     # finally send pong message
-                    self.putToO2N(("pong", key, self.pongDict[key][1], self.pongDict[key][0]))
+                    self.putToO2N(("pong", key, peerList, targetIP, int(targetPort)))
                     # refresh/fill neighbor list
                     self.refreshNeighbours()
                     # remove from dictionary
@@ -320,13 +350,9 @@ class Overlay:
                 if message[0] == "refFL":
                     self.processOutRefFL(message)
                 elif message[0] == "reqFile":
-                    pass
-                    # TODO:
-                    # self.processReqFile(message)
-                elif message[0] == "answerReq":
-                    pass
-                    # TODO:
-                    # self.processAnswerReg(message)
+                    self.processOutReqFile(message)
+                elif message[0] == "sendFile":
+                    self.processDownSendFile(message)
                 else:
                     print "Unknown message type"
         
@@ -342,9 +368,15 @@ class Overlay:
         
         msgType, fileList, senderUsername, senderIP = message
         
-        if (senderUsername, senderIP) in self.neighbors:
-            self.putToO2A((msgType, fileList, senderUsername, False))
-        elif self.addToNeighbours((senderUsername, senderIP), 5):
+        existing = False
+        
+        for neighbor in self.neighbors:
+            if(neighbor[0] == senderUsername and neighbor[1] == senderIP):
+                self.putToO2A((msgType, fileList, senderUsername, False))
+                existing = True
+                break
+        
+        if not existing:
             self.putToO2A((msgType, fileList, senderUsername, True))
 
     #===========================================================================
@@ -359,9 +391,58 @@ class Overlay:
         msgType, fileList = message
         
         for neighbor in self.neighbors:
-            self.putToO2N((msgType, fileList, self.ownUsername, neighbor[1]))
-
+            # split identifier
+            targetIP, targetPort = self.splitIpAndPort(neighbor[1])
+            # send refFL to network
+            self.putToO2N((msgType, fileList, self.ownUsername, targetIP, int(targetPort)))
+            
+    #===========================================================================
+    # processIncReqFile
+    #
+    # Processes the incoming 'request file' message from network layer.
+    #===========================================================================
+    def processIncReqFile(self, message):
+        print "Enter processIncReqFile()"
         
+        msgType, fileName, fileHash, senderIP, senderPort = message
+        
+        for neighbor in self.neighbors:
+            if(neighbor[1] == senderIP):
+                self.putToO2A((msgType, fileName, fileHash, neighbor[0], senderPort))
+                break;
+
+    #===========================================================================
+    # processOutReqFile
+    #
+    # Processes the outgoing 'request file' message to network layer.
+    #===========================================================================
+    def processOutReqFile(self, message):
+        print "Enter processOutReqFile()"
+        
+        msgType, fileName, fileHash, targetUsername = message
+        
+        for neighbor in self.neighbors:
+            if(neighbor[0] == targetUsername):
+                # split identifier
+                targetIP, targetPort = self.splitIpAndPort(neighbor[1])
+                # send reqFile to network
+                self.putToO2N((msgType, fileName, fileHash, targetIP, int(targetPort)))
+                break
+
+    #===========================================================================
+    # processDownSendFile
+    #
+    # Processes the down going 'send file' message to network layer.
+    #===========================================================================
+    def processIncAnswerReq(self, message):
+        print "Enter processIncAnswerReq()"
+        
+        msgType, filePath, targetUsername, targetPortTCP = message
+        
+        for neighbor in self.neighbors:
+            if(neighbor[0] == targetUsername):
+                self.putToO2A((msgType, filePath, neighbor[1], neighbor[2], targetPortTCP))
+                break;        
         
         
         
