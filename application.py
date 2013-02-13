@@ -2,13 +2,21 @@ import threading
 from Queue import Queue
 import time
 import os
-
+import hashlib
+from random import random
+from os.path import isfile, join
     
 class Application:
     def __init__(self, q1=None, q2=None, q3=None):
         self.folderName = "/home/imon/Uni-11/P2P/Test"
         self.mainLoopTimeout = 10
-        self.fileSet = set()
+        self.fileSet = {}
+        self.partSize = 8192
+        self.maxReqNumber = 5
+        self.maxSendNumber = 5
+        #liste der angefragten parts
+        self.reqFiles = []
+        self.sendFiles = []
         #queue from and to overlay
         self.inQueue = q1 or Queue()      
         self.outQueue = q2 or Queue()
@@ -21,41 +29,134 @@ class Application:
         #self.mainLoopThread.join()
        
     def mainLoop(self):
-        n=1
         while(True):
-            files = os.listdir(self.folderName)
-            newFiles = set(files) - self.fileSet
-            if len(newFiles) > 0:
-                print "neue files vorhanden" 
-                print newFiles
-            self.fileSet = self.fileSet | newFiles
+            self.fileSet = self.currentDirFiles()
             message = ("refFL", self.fileSet)
             self.outQueue.put(message, True)
             #print "tolll"
             #print self.folderName
             time.sleep(self.mainLoopTimeout)
-            n +=1
+
         
     def overlayWait(self):
         while(True):
             currentCommand = self.inQueue.get(True)
             print "message received"
             if currentCommand[0] == "refFL":
-                newFiles = currentCommand[1] - self.fileSet
+                self.processIncRefFl(currentCommand)
                 
             elif currentCommand[0] == "reqFile":
-                reply = ""
-                self.outQueue.put(reply, True)
-                pass
-            elif currentCommand[0] == "":
-                pass
+                self.processIncReqFile(currentCommand)
+                
             else:
                 print "Application ERROR: received unknown message from Overlay "
-        
-    def vergleichListen(self, otherList):
-        pass
     
-    def cutFileIntoPieces(self):
-        pass
+    def processIncReqFile(self, message):
+        msgType, fileName, fileHash, senderUsername, port = message
         
+        # TODO: decide to send the file or not
+        
+        if (fileName, fileHash) in self.fileSet and (fileName, fileHash, senderUsername) not in self.sendFiles and self.maxSendNumber > len(self.sendFiles):
+            # TODO: problem if filename is a version-filename, so real-file-name and filetablename is different from 
+            filepath = join(self.folderName, fileName)
+            reply = ("answerReq", filepath, senderUsername, port)
+            self.outQueue.put(reply, True)
+            
+        
+    
+    def processIncRefFl(self, message):
+        msgType, recFiles, sendUser, urgent = message
+        newFiles = self.compareFileLists(recFiles)
+        #message urgent? -> send refFl
+        if urgent:
+            self.outQueue.put(("refFl", self.fileSet))
+            
+        # TODO: new function that choose which file to request
+        if len(newFiles) > 0:
+            for fname, fhash in newFiles.iterkeys():
+                #TODO: Parts
+                if (fname, fhash, sendUser) not in self.reqFiles and self.maxReqNumber > len(self.reqFiles) :
+                    #
+                    reply = ("reqFile", fname, fhash, sendUser)
+                    self.reqFiles.append(fname, fhash) 
+                    self.outQueue.put(reply, True)
+    
+    
+    #compare received Filelist and return List of new files    
+    def compareFileLists(self, otherList):
+        # TODO: lock auf filelist notwendig, damit sie waerend des vergleichs nicht veraendert wird
+        newList = []
+        for entry in otherList:
+            if self.EntryinList(entry):
+                #zusaetzlich betrachten ob partlist stuecke enthaelt
+                pass
+            else:
+                newList.append(entry)
+    
+    #liste der 
+    def currentDirFiles(self):
+        files = os.listdir(self.folderName)
+        filelist = {}
+        for fname in files:
+            #only files are accepted
+            if isfile(join(self.folderName, fname)):
+                #erstmal zeitstempel betrachten
+                #ueberpruefen ob versionierung vorhanden
+                fhash = getHash(join(self.folderName, fname))
+                size = os.path.getsize(join(self.folderName, fname))
+                time = os.path.getmtime(join(self.folderName, fname))
+                version = 0
+                filelist[(fname, fhash)] = ([], size, time, version )
+            
+            #onlyfiles = [ f for f in listdir(mypath) if isfile(join(mypath,f)) ]
+        return filelist
+
+#    #lookup files in the shared directory and change fileset accordingly
+#    #(name, hash, [partlist], insgesamte anz parts)
+#    def lookupDirFiles(self):
+#        
+#        filelist = self.currentDirFiles()
+#        
+#        for entry in self.fileSet.keys():
+#            if entry in filelist:
+#                #eintrag schon in der tabelle vorhanden
+#                del filelist[entry]
+#                pass
+#            else:
+#                #eintrag nicht mehr vorhanden
+#                del self.fileSet[entry]
+#        
+#        files = os.listdir(self.folderName)
+#        newFileList = []
+#        for fil in self.fileSet():
+#            #falls nicht in fileset, kompletten eintrag erzeugen
+#            #falls bereits in fileset: 1.timestamp vergleichen, wenn gleich nix aendern, falls anders allten eintrag loeschen/auf aktuellem anpassen
+#            #falls eintrag in fileset, aber nicht im directory eintrag aus fileset loeschen
+#            if not fil in files:
+#                #fil nicht mehr im shareddirectory, also loeschen
+#                self.fileSet.remove(fil)
+#                self.files.remove(fil)
+#                pass
+#            if fil in files:
+#                #look for timestamp
+#                pass
+#            if False:
+#                #create entry for new file 
+#                name = fil
+#                fhash = getHash(fil)
+#                partnumbers = 70011/ self.partSize
+#                newFileList.append((name, fhash, [], partnumbers))
+        
+def getHash(filepath): 
+    md5 = hashlib.md5()
+    f = open(filepath,'rb')
+    while True:
+        data = f.read(8192)
+        if not data:
+            break
+        md5.update(data)
+    return md5.hexdigest()
+    
+    
 a = Application()
+a.currentDirFiles()
