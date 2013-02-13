@@ -7,9 +7,9 @@ from random import random
 from os.path import isfile, join
     
 class Application:
-    def __init__(self, q1=None, q2=None, q3=None):
-        self.folderName = "/home/imon/Uni-11/P2P/Test"
-        self.mainLoopTimeout = 10
+    def __init__(self, path = "/home/imon/Uni-11/P2P/Test", q1 = None, q2 = None, q3=None):
+        self.folderName = path
+        self.mainLoopTimeout = 3
         self.fileSet = {}
         self.partSize = 8192
         self.maxReqNumber = 5
@@ -41,7 +41,7 @@ class Application:
     def overlayWait(self):
         while(True):
             currentCommand = self.inQueue.get(True)
-            print "message received"
+            # print "message received"
             if currentCommand[0] == "refFL":
                 self.processIncRefFl(currentCommand)
                 
@@ -69,7 +69,7 @@ class Application:
         newFiles = self.compareFileLists(recFiles)
         #message urgent? -> send refFl
         if urgent:
-            self.outQueue.put(("refFl", self.fileSet))
+            self.outQueue.put(("refFL", self.fileSet), True)
             
         # TODO: new function that choose which file to request
         if len(newFiles) > 0:
@@ -78,20 +78,21 @@ class Application:
                 if (fname, fhash, sendUser) not in self.reqFiles and self.maxReqNumber > len(self.reqFiles) :
                     #
                     reply = ("reqFile", fname, fhash, sendUser)
-                    self.reqFiles.append(fname, fhash) 
+                    self.reqFiles.append((fname, fhash)) 
                     self.outQueue.put(reply, True)
     
     
     #compare received Filelist and return List of new files    
     def compareFileLists(self, otherList):
-        # TODO: lock auf filelist notwendig, damit sie waerend des vergleichs nicht veraendert wird
-        newList = []
+        # TODO: lock auf filelist notwendig, damit sie waehrend des vergleichs nicht veraendert wird
+        newList = {}
         for entry in otherList:
-            if self.EntryinList(entry):
-                #zusaetzlich betrachten ob partlist stuecke enthaelt
-                pass
+            if entry not in self.fileSet:
+                newList[entry] = otherList[entry]
             else:
-                newList.append(entry)
+                #zusaetzlich betrachten ob partlist stuecke enthaelt
+                pass               
+        return newList
     
     #liste der 
     def currentDirFiles(self):
@@ -158,5 +159,5 @@ def getHash(filepath):
     return md5.hexdigest()
     
     
-a = Application()
-a.currentDirFiles()
+# a = Application()
+# a.currentDirFiles()

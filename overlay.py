@@ -157,7 +157,8 @@ class Overlay:
             
         sample = random.sample(self.knownPeers, number) 
         for knownPeer in sample: 
-            self.addToNeighbours(knownPeer, 2)
+            if not knownPeer[1] == "8.1:81000":
+                self.addToNeighbours(knownPeer, 2)
 
     #===========================================================================
     # watchN2O
@@ -366,17 +367,20 @@ class Overlay:
     def processIncRefFL(self, message):
         print "Enter processIncRefFL()"
         
-        msgType, fileList, senderUsername, senderIP = message
+        msgType, fileList, senderUsername, senderIP, senderPort = message
+        
+        senderIdentifier = str(senderIP) + ":" + str(senderPort)
         
         existing = False
         
         for neighbor in self.neighbors:
-            if(neighbor[0] == senderUsername and neighbor[1] == senderIP):
+            if(neighbor[0] == senderUsername and neighbor[1] == senderIdentifier):
                 self.putToO2A((msgType, fileList, senderUsername, False))
                 existing = True
                 break
         
         if not existing:
+            self.addToNeighbours((senderUsername, senderIdentifier), 5)
             self.putToO2A((msgType, fileList, senderUsername, True))
 
     #===========================================================================
