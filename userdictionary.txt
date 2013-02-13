@@ -1,0 +1,11 @@
+pong
+username
+pings
+bool
+ttl
+processping
+processpong
+ip
+sys
+trys
+pongs
