@@ -5,6 +5,7 @@ import os
 import hashlib
 from random import random
 from os.path import isfile, join
+import re
     
 class Application:
     def __init__(self, path = "/home/imon/Uni-11/P2P/Test", q1 = None, q2 = None, q3=None):
@@ -30,6 +31,7 @@ class Application:
        
     def mainLoop(self):
         while(True):
+            # TODO: better/more efficient comparison of oldFileset and currentFileset, parts?
             self.fileSet = self.currentDirFiles()
             message = ("refFL", self.fileSet)
             self.outQueue.put(message, True)
@@ -47,7 +49,7 @@ class Application:
                 
             elif currentCommand[0] == "reqFile":
                 self.processIncReqFile(currentCommand)
-                
+            # TODO: receive message from network    
             else:
                 print "Application ERROR: received unknown message from Overlay "
     
@@ -59,6 +61,7 @@ class Application:
         if (fileName, fileHash) in self.fileSet and (fileName, fileHash, senderUsername) not in self.sendFiles and self.maxSendNumber > len(self.sendFiles):
             # TODO: problem if filename is a version-filename, so real-file-name and filetablename is different from 
             filepath = join(self.folderName, fileName)
+            self.sendFiles.append((fileName, fileHash, senderUsername))
             reply = ("answerReq", filepath, senderUsername, port)
             self.outQueue.put(reply, True)
             
@@ -71,14 +74,14 @@ class Application:
         if urgent:
             self.outQueue.put(("refFL", self.fileSet), True)
             
-        # TODO: new function that choose which file to request
+        # TODO: new function that chooses which file to request
         if len(newFiles) > 0:
             for fname, fhash in newFiles.iterkeys():
                 #TODO: Parts
                 if (fname, fhash, sendUser) not in self.reqFiles and self.maxReqNumber > len(self.reqFiles) :
                     #
                     reply = ("reqFile", fname, fhash, sendUser)
-                    self.reqFiles.append((fname, fhash)) 
+                    self.reqFiles.append((fname, fhash, sendUser)) 
                     self.outQueue.put(reply, True)
     
     
@@ -90,7 +93,7 @@ class Application:
             if entry not in self.fileSet:
                 newList[entry] = otherList[entry]
             else:
-                #zusaetzlich betrachten ob partlist stuecke enthaelt
+                # TODO: zusaetzlich betrachten ob partlist stuecke enthaelt
                 pass               
         return newList
     
@@ -112,6 +115,10 @@ class Application:
             #onlyfiles = [ f for f in listdir(mypath) if isfile(join(mypath,f)) ]
         return filelist
 
+    def isVersionFile(self, filename):
+        p = re.compile('.+')
+        pass
+    
 #    #lookup files in the shared directory and change fileset accordingly
 #    #(name, hash, [partlist], insgesamte anz parts)
 #    def lookupDirFiles(self):
@@ -157,6 +164,7 @@ def getHash(filepath):
             break
         md5.update(data)
     return md5.hexdigest()
+    
     
     
 # a = Application()
