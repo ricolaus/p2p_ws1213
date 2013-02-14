@@ -36,12 +36,12 @@ class Overlay:
         self.neighbors = []
         # dictionary of received pings with structure: {msgID: (identifier, currency level)}
         self.pingDict = {}
+        # message ID's of sent pings
+        self.sentPings = set()
         # dictionary of received pongs with structure: {msgID: (identifier, set((username, identifier), ...), currency level)}
         self.pongDict = {}
         # bool whether the program should terminate
         self.__terminated = False
-        # ping to bootstrapping node
-        self.putToO2N(("ping", random.randint(0, 9999) , 4, 0, self.ownUsername, self.ownIP, self.ownPort, bootstrappingIP, bootstrappingPort))
         # start thread which watches the incoming queue from network layer
         self.n2oThread = threading.Thread(target=self.watchN2O)
         self.n2oThread.start()
@@ -54,6 +54,8 @@ class Overlay:
         # start thread which checks the currency for the pings
         self.pingPongCurrencyThread = threading.Thread(target=self.checkPingPongCurrency)
         self.pingPongCurrencyThread.start()
+        # bootstrapping
+        self.sendBootstrappingPing(bootstrappingIP, bootstrappingPort)
     
     #===========================================================================
     # terminate
@@ -63,6 +65,22 @@ class Overlay:
     def terminate(self):
         print "Enter terminate()"
         self.__terminated = True
+        
+    #===========================================================================
+    # sendBootstrappingPing
+    #
+    # Pings the bootstrapping node.
+    #===========================================================================
+    def sendBootstrappingPing(self, bootstrappingIP, bootstrappingPort):
+        msgID = random.randint(0, 9999)
+        identifier = str(self.ownIP) + ":" + str(self.ownPort)
+
+        # add to sent pings
+        self.sentPings.add(msgID)        
+        # ping to bootstrapping node
+        self.putToO2N(("ping", msgID, 4, 0, self.ownUsername, self.ownIP, self.ownPort, bootstrappingIP, bootstrappingPort))
+        # add to ping dictionary
+        self.pingDict[msgID] = (identifier, 10)
     
     #===========================================================================
     # splitIpAndPort
@@ -157,8 +175,10 @@ class Overlay:
             
         sample = random.sample(self.knownPeers, number) 
         for knownPeer in sample: 
-            if not knownPeer[1] == "8.1:81000":
-                self.addToNeighbours(knownPeer, 2)
+            # debugging:
+            # if not knownPeer[1] == "8.1:81000":
+            self.addToNeighbours(knownPeer, 3)
+
 
     #===========================================================================
     # watchN2O
@@ -166,7 +186,7 @@ class Overlay:
     # Watches the incoming queue from the network layer.
     #===========================================================================
     def watchN2O(self):
-        print "Enter watchN2O()"
+        # print "Enter watchN2O()"
         while not self.__terminated:
             message = ()
             if not self.n2o.empty():
@@ -195,7 +215,7 @@ class Overlay:
         # incoming ping := ("ping", pingID, TTL, Hops, senderUsername, senderIP)
         # outgoing ping := ("ping", pingID, TTL, Hops, ownUsername, ownIP, targetIP)
         
-        print "Enter processping()"
+        # print "Enter processping()"
         
         msgType, msgID, ttl, hops, username, ip, port = message
         
@@ -204,7 +224,7 @@ class Overlay:
         # add to/refresh knownPeers list
         self.addToKnownPeers((username, identifier))
         
-        if (ttl > 1) and (msgID not in self.pingDict):
+        if (ttl > 1) and (msgID not in self.pingDict) and (msgID not in self.sentPings):
             # add to ping dictionary
             self.pingDict[msgID] = (identifier, ttl)
             # if ttl is to high
@@ -217,7 +237,7 @@ class Overlay:
                     targetIP, targetPort = self.splitIpAndPort(neighbor[1])
                     # send ping to neighbor
                     self.putToO2N((msgType, msgID, ttl-1, hops+1, self.ownUsername, self.ownIP, self.ownPort, targetIP, int(targetPort)))
-        elif (ttl == 1) and (msgID not in self.pingDict):
+        elif (ttl == 1) and (msgID not in self.pingDict) and (msgID not in self.sentPings):
             # add to ping dictionary
             self.pingDict[msgID] = (identifier, ttl)
             # split identifier
@@ -225,9 +245,11 @@ class Overlay:
             # send pong to sender
             self.putToO2N(("pong", msgID, [(self.ownUsername, self.ownIP, self.ownPort)], targetIP, int(targetPort)))
         elif (msgID in self.pingDict):
-            print "Already got a ping entry with this message ID"
+            print "Already got a ping entry with the message ID. (" + str(msgID) + ")"
+        elif  (msgID  in self.sentPings):
+            print "Ping was sent by myself. (" + str(self.ownUsername) + ")"
         else:
-            print "Invalid ttl"
+            print "Invalid ttl."
             
     #===========================================================================
     # processpong
@@ -240,7 +262,7 @@ class Overlay:
         # incoming pong := ("pong", ID, [(Username, IP, Port), (Username2, IP2, Port2), ...])
         # outgoing pong := ("pong", ID, [(Username, IP, Port), (Username2, IP2, Port2), ...], targetIP, targetPort)
         
-        print "Enter processpong()"
+        # print "Enter processpong()"
         
         msgType, msgID, origPeers = message
         peers = []
@@ -249,7 +271,7 @@ class Overlay:
         for origPeer in origPeers:
             peers.append((origPeer[0], (str(origPeer[1]) + ":" + str(origPeer[2])) )) 
         
-        # refresh own peers list
+        # refresh own known peers list
         for peer in peers: 
             self.addToKnownPeers(peer)
         
@@ -270,10 +292,13 @@ class Overlay:
             # add peers from further pong messages to peerSet
             for p in self.pongDict[msgID][1]:
                 peerSet.add(p)
-            # add new pong message with ip set of peers and currency level
-            self.pongDict[msgID] = (self.pongDict[msgID][0], peerSet, self.pongDict[msgID][2])
+            # if ping was not sent by myself
+            if msgID not in self.sentPings:
+                # add new pong message with ip set of peers and currency level
+                self.pongDict[msgID] = (self.pongDict[msgID][0], peerSet, self.pongDict[msgID][2])
         else:
-            print "Cannot save pong because no ping with this id has arrived before"
+            print str(self.ownUsername) + ": Cannot save pong because a ping with the id (" + str(msgID) + ") has not arrived before or has already been deleted."
+
 
       
     #===========================================================================
@@ -313,6 +338,12 @@ class Overlay:
                 if self.pingDict[key][1] > 0:
                     self.pingDict[key] = (self.pingDict[key][0], self.pingDict[key][1] - 1)
                 else:
+                    if key not in self.sentPings:
+                        # split target identifier
+                        targetIP, targetPort = self.splitIpAndPort(self.pingDict[key][0])
+                        # finally send pong message
+                        self.putToO2N(("pong", key, [(self.ownUsername, self.ownIP, self.ownPort)], targetIP, int(targetPort)))
+                    # remove from dictionary
                     self.pingDict.pop(key)
                     
             tmp = self.pongDict
@@ -320,20 +351,23 @@ class Overlay:
                 if self.pongDict[key][2] > 0:
                     self.pongDict[key] = (self.pongDict[key][0], self.pongDict[key][1], self.pongDict[key][2] - 1)
                 else:
-                    peerList = []
-                    # create from a set of (username, identifier) tuples a list of (username, ip, port) tuples
-                    for username, identifier in self.pongDict[key][1]:
-                        # split identifier
-                        tmpTargetIP, tmpTargetPort = self.splitIpAndPort(identifier)
-                        # add tuple to the new list
-                        peerList.append((username, tmpTargetIP, tmpTargetPort))
-                        
-                    # split target identifier
-                    targetIP, targetPort = self.splitIpAndPort(self.pongDict[key][0])
-                    # finally send pong message
-                    self.putToO2N(("pong", key, peerList, targetIP, int(targetPort)))
-                    # refresh/fill neighbor list
-                    self.refreshNeighbours()
+                    if key in self.sentPings:
+                        # fill neighbor list
+                        self.refreshNeighbours()
+                    else: # send pong message
+                        peerList = []
+                        # create from a set of (username, identifier) tuples a list of (username, ip, port) tuples
+                        for username, identifier in self.pongDict[key][1]:
+                            # split identifier
+                            tmpTargetIP, tmpTargetPort = self.splitIpAndPort(identifier)
+                            # add tuple to the new list
+                            peerList.append((username, tmpTargetIP, tmpTargetPort))
+                        # split target identifier
+                        targetIP, targetPort = self.splitIpAndPort(self.pongDict[key][0])
+                        # finally send pong message
+                        self.putToO2N(("pong", key, peerList, targetIP, int(targetPort)))
+                    
+                    
                     # remove from dictionary
                     self.pongDict.pop(key)                    
         
@@ -343,7 +377,7 @@ class Overlay:
     # Watches the incoming queue from the application layer.
     #===========================================================================
     def watchA2O(self):
-        print "Enter watchA2O()"
+        # print "Enter watchA2O()"
         while not self.__terminated:
             message = ()
             if not self.a2o.empty():
@@ -365,7 +399,7 @@ class Overlay:
     # If adding has success an urgent answer from application layer is requested.
     #===========================================================================
     def processIncRefFL(self, message):
-        print "Enter processIncRefFL()"
+        # print "Enter processIncRefFL()"
         
         msgType, fileList, senderUsername, senderIP, senderPort = message
         
@@ -390,7 +424,7 @@ class Overlay:
     # Sends the message to all neighbors.
     #===========================================================================
     def processOutRefFL(self, message):
-        print "Enter processOutRefFL()"
+        # print "Enter processOutRefFL()"
         
         msgType, fileList = message
         
@@ -421,7 +455,7 @@ class Overlay:
     # Processes the outgoing 'request file' message to network layer.
     #===========================================================================
     def processOutReqFile(self, message):
-        print "Enter processOutReqFile()"
+        # print "Enter processOutReqFile()"
         
         msgType, fileName, fileHash, targetUsername = message
         
