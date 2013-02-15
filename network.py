@@ -8,6 +8,7 @@ import zlib
 import hashlib
 import re
 from datetime import datetime
+from os import path
 
 class Network(object): 
 	def __init__(self, ip, pSend, pRecv, startPort, countPort, recvQueue, sendQueue, mode): 
@@ -60,7 +61,7 @@ class Network(object):
 		#outgoing refFL (o2n) := ("refFL", fileList, ownUsername, targetIP, targetPort)
 		self.__sendQueue.put(("refFL", "fileList", "ownUsername", "127.0.0.1", self.__portSend))
 		#outgoing reqFile (o2n) := ("reqFile", fileName, fileHash, senderIP, targetIP, targetPort)
-		self.__sendQueue.put(("reqFile", "file/filetrans", "fileHash", self.__ip, "127.0.0.1", self.__portSend))
+		self.__sendQueue.put(("reqFile", "files/filetrans", "fileHash", self.__ip, "127.0.0.1", self.__portSend))
 		#downgoing sendFile (o2n) := ("sendFile", filePath, targetIP, targetPortUDP, targetPortTCP)
 	#	self.__sendQueue.put(("sendFile", "filePath", "127.0.0.1", self.__portSend, 1337))
 		print "test1 ende"        
@@ -309,49 +310,52 @@ class Network(object):
     
 	def __recvUdp(self):
 		print "recvUdp start"
-		
 		recvDict = {}
 		recvDictPack = {}
-		
-		sockRecv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		sockRecv.bind((self.__ip, self.__portRecv))
-		sockRecv.settimeout(1.0)
-		
-		while True:
-			try:
-				data, addr = sockRecv.recvfrom(self.__BUFFERSIZE_UDP)
+		sockRecv = None
+		try:
+			sockRecv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+			sockRecv.bind((self.__ip, self.__portRecv))
+			sockRecv.settimeout(1.0)
+			while True:
+				try:
+					data, addr = sockRecv.recvfrom(self.__BUFFERSIZE_UDP)
 				
-				(dataHashRecv, data) = data.split(";", 1)
-				dataHash = str(self.__calcHash(data))
-				if dataHashRecv == dataHash:
-					(part, partCount, senderIP, senderPort, sequNumm, nachricht) = data.split(";", 5)
-					part = int(part, 16)
-					partCount = int(partCount,16)
+					(dataHashRecv, data) = data.split(";", 1)
+					dataHash = str(self.__calcHash(data))
+					if dataHashRecv == dataHash:
+						(part, partCount, senderIP, senderPort, sequNumm, nachricht) = data.split(";", 5)
+						part = int(part, 16)
+						partCount = int(partCount,16)
 					
-					if (partCount, senderIP, senderPort) in recvDict.keys():
-						if recvDict[(partCount, senderIP, senderPort)] != sequNumm:
+						if (partCount, senderIP, senderPort) in recvDict.keys():
+							if recvDict[(partCount, senderIP, senderPort)] != sequNumm:
+								recvDict[(partCount, senderIP, senderPort)] = sequNumm
+								for i0, i1, i2, i3 in recvDictPack.keys():
+									if i2 == senderIP and  i3 == senderPort:
+										del recvDictPack[(i0, i1, i2, i3)]
+						else:
 							recvDict[(partCount, senderIP, senderPort)] = sequNumm
-							for i0, i1, i2, i3 in recvDictPack.keys():
-								if i2 == senderIP and  i3 == senderPort:
-									del recvDictPack[(i0, i1, i2, i3)]
-					else:
-						recvDict[(partCount, senderIP, senderPort)] = sequNumm
 						
-					recvDictPack[(part, partCount, senderIP, senderPort)] = nachricht
-					if (part == partCount) and (recvDict[(partCount, senderIP, senderPort)] == sequNumm):
-						nachricht =  ""
-						for i in range(partCount):
-							if (i + 1, partCount, senderIP, senderPort) in recvDictPack:
-								nachricht = nachricht + recvDictPack[(i + 1, partCount, senderIP, senderPort)]
-								del recvDictPack[(i + 1, partCount, senderIP, senderPort)]
-						self.__recvUdp2(nachricht, addr, senderIP, senderPort)
-						del recvDict[(partCount, senderIP, senderPort)]
-						continue
-			except socket.timeout:
-				if eingabe == "ende":
-					break
-				continue
-		sockRecv.close()
+						recvDictPack[(part, partCount, senderIP, senderPort)] = nachricht
+						if (part == partCount) and (recvDict[(partCount, senderIP, senderPort)] == sequNumm):
+							nachricht =  ""
+							for i in range(partCount):
+								if (i + 1, partCount, senderIP, senderPort) in recvDictPack:
+									nachricht = nachricht + recvDictPack[(i + 1, partCount, senderIP, senderPort)]
+									del recvDictPack[(i + 1, partCount, senderIP, senderPort)]
+							self.__recvUdp2(nachricht, addr, senderIP, senderPort)
+							del recvDict[(partCount, senderIP, senderPort)]
+							continue
+				except socket.timeout:
+					if eingabe == "ende":
+						break
+					continue
+		except socket.error as msg:
+			print msg
+		finally: 
+			sockRecv.close()
+			sockRecv = None
 		print "recvUdp ende"
 		
 		
@@ -425,15 +429,44 @@ o2n2 = Queue.Queue()
 
 eingabe = ""
 
-network2 = Network("localhost", 50001, 50000, 60010, 10, n2o2, o2n2, 2)
-network2.run()
-time.sleep(0.2)
-network1 = Network("localhost", 50000, 50001, 60000, 10, n2o1, o2n1, 1)
-network1.run()
+#network2 = Network("localhost", 50001, 50000, 60010, 10, n2o2, o2n2, 2)
+#network2.run()
+#time.sleep(0.2)
+#network1 = Network("localhost", 50000, 50001, 60000, 10, n2o1, o2n1, 1)
+#network1.run()
 
-while 1:
-    eingabe = raw_input("> ") 
-    if eingabe == "ende": 
-        break
+a = 2
+
+
+
+if path.exists("files/filetrans"):
+	fo = open("files/filetrans", "r")
+	text = fo.readline();
+	print "1" + text
+	text = fo.readline();
+	print "2" + text
+	text = fo.readline();
+	print "3" + text
+	text = fo.readline();
+	print "4" + text
+	fo.close()
+else:
+	fo = open("files/filetrans", "wb")
+	text = ""
+	for i in range(1024):
+		text = text + chr(random.randint(33, 126))
+	fo.write("<fileName>\n")
+	fo.write("<fileHash>\n")
+	fo.write("<partCount>\n")
+	fo.write("<partList>\n")
+	fo.close()
+	
+
+
+
+#while 1:
+#    eingabe = raw_input("> ") 
+#    if eingabe == "ende": 
+#        break
  
 sys.exit(-1)

@@ -9,3 +9,17 @@
 		<partData></partData>
 	</parts>
 </XML>
+EOF
+
+
+
+neuer Vorschlag
+<fileName>
+<fileHash>
+<partCount>
+<partList>
+<partId><partHash><partData>
+EOF
+
+
+http://www.mediasonics.info/_archiv/programming_python/projekt/11.html
