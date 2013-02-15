@@ -1,11 +1,12 @@
 import threading
-from Queue import Queue
 import time
 import os
 import hashlib
 from random import random
 from os.path import isfile, join
 import re
+import ast
+
     
 class Application:
     def __init__(self, path = "/home/imon/Uni-11/P2P/Test", q1 = None, q2 = None, q3=None):
@@ -19,10 +20,10 @@ class Application:
         self.reqFiles = []
         self.sendFiles = []
         #queue from and to overlay
-        self.inQueue = q1 or Queue()      
-        self.outQueue = q2 or Queue()
+        self.inQueue = q1       
+        self.outQueue = q2 
         #queue for user input, maybe not needed
-        self.interfacequeue = q3 or Queue()
+        self.interfacequeue = q3 
         self.mainLoopThread = threading.Thread(target=self.mainLoop)
         self.mainLoopThread.start()
         self.overlayWaitThread = threading.Thread(target=self.overlayWait)
@@ -32,8 +33,11 @@ class Application:
     def mainLoop(self):
         while(True):
             # TODO: better/more efficient comparison of oldFileset and currentFileset, parts?
-            self.fileSet = self.currentDirFiles()
-            message = ("refFL", self.fileSet)
+            fss = str(self.currentDirFiles())
+            right = ast.literal_eval(fss)
+            #self.fileSet = self.currentDirFiles()
+            #message = ("refFL", self.fileSet)
+            message = ("refFL", right)
             self.outQueue.put(message, True)
             #print "tolll"
             #print self.folderName
@@ -57,7 +61,7 @@ class Application:
         msgType, fileName, fileHash, senderUsername, port = message
         
         # TODO: decide to send the file or not
-        
+        #maybe add:      and not alreadySendingToReceiver(senderUsername) 
         if (fileName, fileHash) in self.fileSet and (fileName, fileHash, senderUsername) not in self.sendFiles and self.maxSendNumber > len(self.sendFiles):
             # TODO: problem if filename is a version-filename, so real-file-name and filetablename is different from 
             fsName = createFSname(fileName, self.fileSet[(fileName, fileHash)][3])
@@ -134,6 +138,13 @@ class Application:
         # TODO: evtl. noch reqSet anschauen damit nicht gleichzeitig eine naechste versionsnummer gewaehlt wird, oder lock auf fkt.
         pass
     
+    def alreadySendingToReceiver(self, receiver):
+        for it in self.reqFiles:
+            if it[2] == receiver:
+                return True
+        
+        return False
+        
 #    #lookup files in the shared directory and change fileset accordingly
 #    #(name, hash, [partlist], insgesamte anz parts)
 #    def lookupDirFiles(self):
@@ -198,6 +209,9 @@ def getFileVersion( filename):
         
             
 def createFSname(filename, vers):
+    if vers == "0":
+        return filename
+    
     p = re.compile(r"(.+)\.([^.]+)$")
     r = re.compile(r"(.?[^.]+)$")
     a = r.match(filename)
