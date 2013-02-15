@@ -484,8 +484,8 @@ class Overlay:
         for neighbor in self.neighbors:
             if(neighbor[0] == targetUsername):
                 # split identifier
-                targetIP, targetPort = self.splitIpAndPort(neighbor[1])
-                self.putToO2N((msgType, filePath, targetIP, targetPort, targetPortTCP))
+                targetIP, targetPortUDP = self.splitIpAndPort(neighbor[1])
+                self.putToO2N((msgType, filePath, targetIP, targetPortTCP))
                 break;        
         
         
