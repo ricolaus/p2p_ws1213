@@ -106,17 +106,31 @@ class Application:
             if isfile(join(self.folderName, fname)):
                 #erstmal zeitstempel betrachten
                 #ueberpruefen ob versionierung vorhanden
+                flistname, version = getFileVersion(fname)
+                #if version != "0":
+                #    print flistname + "\t" + fname +"\t" + version        
                 fhash = getHash(join(self.folderName, fname))
                 size = os.path.getsize(join(self.folderName, fname))
                 time = os.path.getmtime(join(self.folderName, fname))
-                version = 0
-                filelist[(fname, fhash)] = ([], size, time, version )
+                filelist[(flistname, fhash)] = ([], size, time, version )
             
             #onlyfiles = [ f for f in listdir(mypath) if isfile(join(mypath,f)) ]
         return filelist
 
-    def isVersionFile(self, filename):
-        p = re.compile('.+')
+    def createpartsFolder(self, filename, fhash):
+
+        dirName = r"." + filename + r"_" + fhash
+        dirPath = join(self.folderName, dirName)
+        if not os.path.isdir(dirPath):
+            os.mkdir(dirPath)
+     
+    def nextVersion(self, filename, fhash):
+        versions = []
+        for i in self.fileSet:
+            if i == filename:
+                versions.append(self.fileSet[i][3])
+        return int(max(versions)) + 1
+        # TODO: evtl. noch reqSet anschauen damit nicht gleichzeitig eine naechste versionsnummer gewaehlt wird, oder lock auf fkt.
         pass
     
 #    #lookup files in the shared directory and change fileset accordingly
@@ -166,6 +180,35 @@ def getHash(filepath):
     return md5.hexdigest()
     
     
+def getFileVersion( filename):
+    #filename = "ganzGrossgz(copy20)"
+    p = re.compile(r"(.+)\(copy([1-9]+\d*)\)\.([^.]+)$")
+    r = re.compile(r"(.?[^.]*)\(copy([1-9]+\d*)\)$")
+    a = r.match(filename)
+    if a:
+        return a.groups()
+    b = p.match(filename)
+    if b:
+        name, vers,  extension = b.groups()
+        return (name+"."+extension, vers)
     
-# a = Application()
-# a.currentDirFiles()
+    return (filename, "0")
+        
+            
+def createFileVersion(filename, vers):
+    p = re.compile(r"(.+)\.([^.]+)$")
+    r = re.compile(r"(.?[^.]+)$")
+    a = r.match(filename)
+    if a:
+        return filename +r"(copy" + vers + r")"
+    b = p.match(filename)
+    if b:
+        name,  extension = a.groups()
+        return name + vers + "." +extension
+    # TODO: error message
+    return None    
+    
+#a = getFileVersion("")
+#print a.groups()
+#a = Application()
+#a.currentDirFiles()
