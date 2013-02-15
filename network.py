@@ -3,12 +3,9 @@ from threading import Thread
 import time
 import sys
 import Queue
-import random
-import zlib
 import hashlib
-import re
 from datetime import datetime
-from os import path
+import os
 import ast
 
 class Network(object): 
@@ -27,7 +24,7 @@ class Network(object):
 		self.__BUFFERSIZE_UDP = 63
 		self.__BUFFERSIZE_TCP = 1024
 		self.__BUFFERSIZE_FILE = 65536
- 
+		
 	def run(self):
 		t0 = Thread(target=self.__recvUdp, args=())
 		t0.start()
@@ -65,7 +62,7 @@ class Network(object):
 		#downgoing sendFile (o2n) := ("sendFile", filePath, targetIP, targetPortUDP, targetPortTCP)
 	#	self.__sendQueue.put(("sendFile", "filePath", "127.0.0.1", self.__portSend, 1337))
 		print "test1 ende"        
-    
+		
 	def __test2(self):
 		print "test2 start"
 		while True:
@@ -79,22 +76,23 @@ class Network(object):
 		print "test2 ende"
 
 	def __recvTCP(self, port, fileName, fileHash, filePart):
-		hatshi = ""
 		try:
 			sockRecv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			sockRecv.bind(("", port)) 
 			sockRecv.settimeout(1)
 			sockRecv.listen(1)
-			filePath = "." + fileName + "_" + fileHash + "/" + str(filePart) + fileName
+			filePath = "." + fileName + "_" + fileHash
 			index = 1
 			while True: 
 				try:
 					con, addr = sockRecv.accept()
+					addr = addr
 				except socket.timeout:
 					if eingabe == "ende":
 						break
 					if index == 10:
 						print "Daten wurden nicht empfangen die ERSTE %d" % port
+						self.__recvQueue.put(("fileTransRecv", fileName, fileHash, filePart, False))
 						self.__portQueue.put(port)				
 						return
 					index = index + 1
@@ -107,12 +105,14 @@ class Network(object):
 					except socket.timeout:
 						if index == 10:
 							print "Daten wurden nicht empfangen die ZWEITE %d" % port
-							self.__portQueue.put(port)					
+							self.__portQueue.put(port)
+							self.__recvQueue.put(("fileTransRecv", fileName, fileHash, filePart, False))					
 							return
 						index = index + 1
 						if eingabe == "ende":
 							break
 				(stat, fileNameRecv) = antwort.split(";", 1)
+				fileNameRecv = fileNameRecv
 				if stat == "LETSGOON":
 					con.send("LETSGOON")
 					recvData = ""
@@ -128,12 +128,15 @@ class Network(object):
 						bitRate = bitRate + float(len(data)*8) / float((ende - start))
 						bitRateCounter = bitRateCounter + 1
 					print "Transferate %0.3f Mbit/s" % (bitRate / bitRateCounter)
-					filoName = filePath + str(time.clock())
-					fileRecv = open(filoName,"wb")
+					filoName = fileName + str(time.clock())
+					if not os.path.isdir(filePath):
+						os.mkdir(filePath)
+					fileRecv = open(filePath + "/" + filoName,"wb")
 					fileRecv.write(recvData)
 					fileRecv.close()
 					print datetime.now().microsecond
 					self.__portQueue.put(port)
+					self.__recvQueue.put(("fileTransRecv", fileName, fileHash, filePart, True))
 					break
 		except socket.error as msg:
 			print msg
@@ -155,8 +158,9 @@ class Network(object):
 					break
 				except socket.timeout:
 					if index == 10:
-						print "Daten wurden nicht empfangen die DRITTE %d" % port
+						print "Daten wurden nicht gesendet die DRITTE %d" % port
 						self.__portQueue.put(port)
+						self.__recvQueue.put(("fileTransSend", ip, filePath, False))
 						#nachricht an appli das daten nicht gesendet wurden					
 						return
 					index = index + 1
@@ -174,6 +178,7 @@ class Network(object):
 					if not chunk:
 						break  # EOF
 					sockSend.sendall(chunk)
+					self.__recvQueue.put(("fileTransSend", ip, filePath, False))
 		except socket.error as msg:
 			print msg
 		finally: 
@@ -181,7 +186,6 @@ class Network(object):
 		#nachricht an appli das datei gesendet wurden oder return
 
 	def __send(self, ip, port, nachricht):
-		hatshi = ""
 		partQueue = Queue.Queue()
 		nachricht = nachricht
 		partSize = self.__BUFFERSIZE_UDP - 38
@@ -214,16 +218,14 @@ class Network(object):
 				sockSend.sendto(partNachricht, (ip, port))
 			except socket.error as msg:
 				sockSend = None
+				print msg
 			finally: 
 				sockSend.close()
 		print "[SEND] %s nach %s:%s\t%s" % (self.__ip, str(ip), str(port), nachricht)
-		return sendStat
-        	
-	
+		return sendStat	
 	
 	def __sendUdp(self):
 		print "sendUdp start"
-		sendCase = ""
 		while True:
 			try:
 				sendTuple = self.__sendQueue.get(True, 1.0)
@@ -267,21 +269,24 @@ class Network(object):
 					fileName = sendTuple[1]
 					fileHash = sendTuple[2]
 					listenPortTCP = self.__portQueue.get()
-					threadTCP = Thread(target=self.__recvTCP, args=(listenPortTCP, fileName, fileHash))
+					threadTCP = Thread(target=self.__recvTCP, args=(listenPortTCP, fileName, fileHash, 0))
 					self.__threadArray.append(threadTCP)
 					threadTCP.start()
 					sendTuple = self.tupleToString((sendTuple) + (listenPortTCP,))
 					#reqFile (n2n) := ("reqFile", fileName, fileHash, senderIP, listenPortTCP)
 					sendStat = self.__send(sendIP, sendPort, sendTuple)
 				#sendFile (permission to network layer to send the file)
-				#downgoing sendFile (o2n) := ("sendFile", filePath, targetIP, targetPortTCP)
+				#downgoing sendFile (o2n) := ("sendFile", filePath, partNumm, targetIP, targetPortTCP)
 				elif sendTuple[0] == "sendFile":
-					sendIP = sendTuple[2]
-					sendPortTCP = sendTuple[3]
+					sendIP = sendTuple[3]
+					sendPortTCP = sendTuple[4]
+					partNumm = sendTuple[2]
+					partNumm = partNumm
 					filePath = sendTuple[1]
 					threadTCP = Thread(target=self.__sendTCP, args=(sendIP, sendPortTCP, filePath))
 					self.__threadArray.append(threadTCP)
 					threadTCP.start()
+				print sendStat
 	#			if sendCase == "message":
 	#				sendStat = self.__send(sendIP, sendPort, "OVERSTAT", nachricht)
 	#				if sendStat == False:
@@ -302,16 +307,16 @@ class Network(object):
 					break
 		print "sendUdp ende"
 		
-	def tupleToString(self, tuple):
-		string = tuple[0]
-		for i in range(1, len(tuple)):
-			string = string + ";" + str(tuple[i])
+	def tupleToString(self, tup):
+		string = tup[0]
+		for i in range(1, len(tup)):
+			string = string + ";" + str(tup[i])
 		return string
 
 	def __calcHash(self, text):
 		hatshi = hashlib.md5(text).hexdigest()[:self.__HASHLENGTH]
 		return hatshi
-    
+	
 	def __recvUdp(self):
 		print "recvUdp start"
 		recvDict = {}
@@ -361,11 +366,6 @@ class Network(object):
 			sockRecv.close()
 			sockRecv = None
 		print "recvUdp ende"
-		
-		
-		
-    
-    
 	
 	#reqFile (request file)
 	#incoming reqFile (n2o) := ("reqFile", fileName, fileHash, senderIP, senderPortUDP , senderPortTCP)
@@ -418,7 +418,6 @@ class Network(object):
 				#self.__sendQueue.put(("sendFile", fileName, senderIP, senderPortTCP))
 				#nach oben geben!!!
 		return True
- 
 
 #if len(sys.argv) < 5:
 #	print 'Prgramm wie folgt starten:'

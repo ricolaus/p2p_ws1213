@@ -79,7 +79,7 @@ network1.run()
 
 
 
-time.sleep(3)
+time.sleep(2.5)
 
 overlay2 = Overlay("User1", "localhost", 50001, "localhost", 50000, n2otmp, o2ntmp, a2otmp, o2atmp)
 #application2 = Application("C:/Users/Skid/Desktop/Uni/11. Semester/P2P/Folder Sync/User1", o2atmp, a2otmp)
