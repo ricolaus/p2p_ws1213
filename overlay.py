@@ -202,7 +202,7 @@ class Overlay:
                 elif message[0] == "reqFile":
                     self.processIncReqFile(message)
                 else:
-                    print "Unknown message type"
+                    print "Unknown message type: " + str(message[0]) 
             
     #===========================================================================
     # processping
@@ -354,6 +354,8 @@ class Overlay:
                     if key in self.sentPings:
                         # fill neighbor list
                         self.refreshNeighbours()
+                        # remove entry from set
+                        self.sentPings.remove(key)
                     else: # send pong message
                         peerList = []
                         # create from a set of (username, identifier) tuples a list of (username, ip, port) tuples
@@ -386,10 +388,11 @@ class Overlay:
                     self.processOutRefFL(message)
                 elif message[0] == "reqFile":
                     self.processOutReqFile(message)
-                elif message[0] == "sendFile":
+                #TODO: change message name to sendFile
+                elif message[0] == "answerReq":
                     self.processDownSendFile(message)
                 else:
-                    print "Unknown message type"
+                    print "Unknown message type: " + str(message[0]) 
         
     #===========================================================================
     # processIncRefFL
@@ -444,8 +447,10 @@ class Overlay:
         
         msgType, fileName, fileHash, senderIP, senderPort = message
         
+        senderIdentifier = str(senderIP) + ":" + str(senderPort)
+        
         for neighbor in self.neighbors:
-            if(neighbor[1] == senderIP):
+            if(neighbor[1] == senderIdentifier):
                 self.putToO2A((msgType, fileName, fileHash, neighbor[0], senderPort))
                 break;
 
@@ -472,14 +477,14 @@ class Overlay:
     #
     # Processes the down going 'send file' message to network layer.
     #===========================================================================
-    def processIncAnswerReq(self, message):
-        print "Enter processIncAnswerReq()"
+    def processDownSendFile(self, message):
+        print "Enter processDownSendFile()"
         
         msgType, filePath, targetUsername, targetPortTCP = message
         
         for neighbor in self.neighbors:
             if(neighbor[0] == targetUsername):
-                self.putToO2A((msgType, filePath, neighbor[1], neighbor[2], targetPortTCP))
+                self.putToO2N((msgType, filePath, neighbor[1], neighbor[2], targetPortTCP))
                 break;        
         
         

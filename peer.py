@@ -12,10 +12,22 @@ from application import Application
 # nice, cheap and dirty hack for a thread safe print function
 print = lambda x: sys.stdout.write("%s\n" % x)
 
+
+#===============================================================================
+# transfer
+#
+# Function for debugging purposes.
+# Allows to transfer messages between TWO(!) peers without the network layer.
+# Peers have to be    User0 with IP 8.0 and Port 80000
+#                     and
+#                     User1 with IP 8.1 and Port 81000.
+#===============================================================================
 def transfer(q1, q2):
     while True:
         message = q1.get(True)
         print(str(message))
+        
+        # refFL
         if message[0] == "refFL":
             msgType, fileList, senderUsername, senderIP, senderPort = message
             if senderIP == '8.0':
@@ -27,12 +39,29 @@ def transfer(q1, q2):
             else:
                 print("Unknown sender IP in transfer function: " + str(senderIP))
             q2.put((msgType, fileList, senderUsername, senderIP, senderPort), True)
+            
+        # ping
         if message[0] == "ping":
             msgType, msgID, ttl, hops, username, ip, port, targetIP, targetPort = message
             q2.put((msgType, msgID, ttl, hops, username, ip, port), True)
+            
+        # pong
         if message[0] == "pong":
             msgType, msgID, origPeers, targetIP, targetPort  = message
             q2.put((msgType, msgID, origPeers), True)
+            
+        #reqFile
+        if message[0] == "reqFile":
+            msgType, fileName, fileHash, targetIP, targetPort = message
+            if targetIP == '8.0':
+                targetIP = '8.1'
+                targetPort = 81000
+            elif targetIP == '8.1':
+                targetIP = '8.0'
+                targetPort = 80000
+            else:
+                print("Unknown sender IP in transfer function: " + str(senderIP))
+            q2.put((msgType, fileName, fileHash, targetIP, targetPort), True)
 
 
 n2o = Queue()
@@ -64,7 +93,7 @@ overlay2 = Overlay("User1", 8.1, 81000, 8.0, 80000, n2otmp, o2ntmp, a2otmp, o2at
 application2 = Application("C:/Users/Skid/Desktop/Uni/11. Semester/P2P/Folder Sync/User1", o2atmp, a2otmp)
 
 # n2o.put(("ping", 2, 2, 2, "User2", 8.2), True)
-#n2o.put(("pong", 1, [("User2", 8.2, 82000), ("User3", 8.3, 83000)]), True)
+#n2o.put(("pong", 1, [("User2", 8.2, 82000), ("User3", 8.3, 83000), ("User4", 8.4, 84000)]), True)
 #n2o.put(("pong", 1, [("User5", 8.5, 85000), ("User6", 8.6, 86000), ("User7", 8.7, 87000)]), True)
 # wait until pong currency expired and pong has been sent
 #time.sleep(7)
