@@ -205,7 +205,7 @@ def createFSname(filename, vers):
         return filename +r"(copy" + vers + r")"
     b = p.match(filename)
     if b:
-        name,  extension = a.groups()
+        name,  extension = b.groups()
         return name + vers + "." +extension
     # TODO: error message
     return None    
