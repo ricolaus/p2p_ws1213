@@ -479,13 +479,13 @@ class Overlay:
     def processDownSendFile(self, message):
         # print "Enter processDownSendFile()"
         
-        msgType, filePath, targetUsername, targetPortTCP = message
+        msgType, filePath, targetUsername, targetPortTCP, partNumber = message
         
         for neighbor in self.neighbors:
             if(neighbor[0] == targetUsername):
                 # split identifier
                 targetIP, targetPortUDP = self.splitIpAndPort(neighbor[1])
-                self.putToO2N((msgType, filePath, targetIP, targetPortTCP))
+                self.putToO2N((msgType, filePath, targetIP, targetPortTCP, partNumber))
                 break;        
         
         

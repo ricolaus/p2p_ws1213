@@ -67,7 +67,7 @@ class Application:
             fsName = createFSname(fileName, self.fileSet[(fileName, fileHash)][3])
             filepath = join(self.folderName, fsName)
             self.sendFiles.append((fileName, fileHash, senderUsername))
-            reply = ("sendFile", filepath, senderUsername, port)
+            reply = ("sendFile", filepath, senderUsername, port, 0)
             self.outQueue.put(reply, True)
             
         
