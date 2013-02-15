@@ -33,11 +33,11 @@ class Application:
     def mainLoop(self):
         while(True):
             # TODO: better/more efficient comparison of oldFileset and currentFileset, parts?
-            fss = str(self.currentDirFiles())
-            right = ast.literal_eval(fss)
-            #self.fileSet = self.currentDirFiles()
-            #message = ("refFL", self.fileSet)
-            message = ("refFL", right)
+            #fss = str(self.currentDirFiles())
+            #right = ast.literal_eval(fss)
+            self.fileSet = self.currentDirFiles()
+            message = ("refFL", self.fileSet)
+            #message = ("refFL", right)
             self.outQueue.put(message, True)
             #print "tolll"
             #print self.folderName
@@ -86,7 +86,8 @@ class Application:
                 if (fname, fhash, sendUser) not in self.reqFiles and self.maxReqNumber > len(self.reqFiles) :
                     #
                     reply = ("reqFile", fname, fhash, sendUser)
-                    self.reqFiles.append((fname, fhash, sendUser)) 
+                    self.reqFiles.append((fname, fhash, sendUser))
+                    self.createpartsFolder(fname, fhash)
                     self.outQueue.put(reply, True)
     
     
