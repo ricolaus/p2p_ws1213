@@ -29,15 +29,7 @@ def transfer(q1, q2):
         
         # refFL
         if message[0] == "refFL":
-            msgType, fileList, senderUsername, senderIP, senderPort = message
-            if senderIP == '8.0':
-                senderIP = '8.1'
-                senderPort = 81000
-            elif senderIP == '8.1':
-                senderIP = '8.0'
-                senderPort = 80000
-            else:
-                print("Unknown sender IP in transfer function: " + str(senderIP))
+            msgType, fileList, senderUsername, senderIP, senderPort, targetIP, targetPort = message
             q2.put((msgType, fileList, senderUsername, senderIP, senderPort), True)
             
         # ping
@@ -52,16 +44,8 @@ def transfer(q1, q2):
             
         #reqFile
         if message[0] == "reqFile":
-            msgType, fileName, fileHash, targetIP, targetPort = message
-            if targetIP == '8.0':
-                targetIP = '8.1'
-                targetPort = 81000
-            elif targetIP == '8.1':
-                targetIP = '8.0'
-                targetPort = 80000
-            else:
-                print("Unknown sender IP in transfer function: " + str(senderIP))
-            q2.put((msgType, fileName, fileHash, targetIP, targetPort), True)
+            msgType, fileName, fileHash, senderIP, senderPort , targetIP, targetPort = message
+            q2.put((msgType, fileName, fileHash, senderIP, senderPort, 60000), True)
 
 
 n2o = Queue()

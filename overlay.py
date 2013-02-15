@@ -212,8 +212,8 @@ class Overlay:
     # If TTL = 1 a pong is sent to the sender of the ping.
     #===========================================================================
     def processping(self, message):
-        # incoming ping := ("ping", pingID, TTL, Hops, senderUsername, senderIP)
-        # outgoing ping := ("ping", pingID, TTL, Hops, ownUsername, ownIP, targetIP)
+        # incoming ping := ("ping", pingID, TTL, Hops, senderUsername, senderIP, senderPort)
+        # outgoing ping := ("ping", pingID, TTL, Hops, ownUsername, ownIP, ownPort, targetIP, targetPort)
         
         # print "Enter processping()"
         
@@ -435,7 +435,7 @@ class Overlay:
             # split identifier
             targetIP, targetPort = self.splitIpAndPort(neighbor[1])
             # send refFL to network
-            self.putToO2N((msgType, fileList, self.ownUsername, targetIP, int(targetPort)))
+            self.putToO2N((msgType, fileList, self.ownUsername, self.ownIP, self.ownPort, targetIP, int(targetPort)))
             
     #===========================================================================
     # processIncReqFile
@@ -443,15 +443,15 @@ class Overlay:
     # Processes the incoming 'request file' message from network layer.
     #===========================================================================
     def processIncReqFile(self, message):
-        print "Enter processIncReqFile()"
+        # print "Enter processIncReqFile()"
         
-        msgType, fileName, fileHash, senderIP, senderPort = message
+        msgType, fileName, fileHash, senderIP, senderPortUDP, senderPortTCP = message
         
-        senderIdentifier = str(senderIP) + ":" + str(senderPort)
+        senderIdentifier = str(senderIP) + ":" + str(senderPortUDP)
         
         for neighbor in self.neighbors:
             if(neighbor[1] == senderIdentifier):
-                self.putToO2A((msgType, fileName, fileHash, neighbor[0], senderPort))
+                self.putToO2A((msgType, fileName, fileHash, neighbor[0], senderPortTCP))
                 break;
 
     #===========================================================================
@@ -469,7 +469,7 @@ class Overlay:
                 # split identifier
                 targetIP, targetPort = self.splitIpAndPort(neighbor[1])
                 # send reqFile to network
-                self.putToO2N((msgType, fileName, fileHash, targetIP, int(targetPort)))
+                self.putToO2N((msgType, fileName, fileHash, self.ownIP, self.ownPort, targetIP, int(targetPort)))
                 break
 
     #===========================================================================
@@ -478,13 +478,15 @@ class Overlay:
     # Processes the down going 'send file' message to network layer.
     #===========================================================================
     def processDownSendFile(self, message):
-        print "Enter processDownSendFile()"
+        # print "Enter processDownSendFile()"
         
         msgType, filePath, targetUsername, targetPortTCP = message
         
         for neighbor in self.neighbors:
             if(neighbor[0] == targetUsername):
-                self.putToO2N((msgType, filePath, neighbor[1], neighbor[2], targetPortTCP))
+                # split identifier
+                targetIP, targetPort = self.splitIpAndPort(neighbor[1])
+                self.putToO2N((msgType, filePath, targetIP, targetPort, targetPortTCP))
                 break;        
         
         
