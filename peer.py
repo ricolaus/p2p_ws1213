@@ -1,5 +1,5 @@
 from __future__ import print_function
-from Queue import Queue
+import Queue
 import time
 import sys
 import threading
@@ -7,7 +7,7 @@ import threading
 
 from overlay import Overlay
 from application import Application
-#from network import Network
+from network import Network
 
 # nice, cheap and dirty hack for a thread safe print function
 print = lambda x: sys.stdout.write("%s\n" % x)
@@ -48,33 +48,44 @@ def transfer(q1, q2):
             q2.put((msgType, fileName, fileHash, senderIP, senderPort, 60000), True)
 
 
-n2o = Queue()
-o2n = Queue()
-a2o = Queue()
-o2a = Queue()
+n2o = Queue.Queue()
+o2n = Queue.Queue()
+a2o = Queue.Queue()
+o2a = Queue.Queue()
 
-a2otmp = Queue()
-o2atmp = Queue()
-n2otmp = Queue()
-o2ntmp = Queue()
+a2otmp = Queue.Queue()
+o2atmp = Queue.Queue()
+n2otmp = Queue.Queue()
+o2ntmp = Queue.Queue()
 
-transferThread1 = threading.Thread(target=transfer, args=(o2n, n2otmp))
-transferThread1.start()
-
-transferThread2 = threading.Thread(target=transfer, args=(o2ntmp, n2o))
-transferThread2.start()
+#transferThread1 = threading.Thread(target=transfer, args=(o2n, n2otmp))
+#transferThread1.start()
+#
+#transferThread2 = threading.Thread(target=transfer, args=(o2ntmp, n2o))
+#transferThread2.start()
 
 #n2o.put(("ping", 1, 4, 0, "User1", 8.1, 81000), True)
 #n2otmp.put(("ping", 1, 4, 0, "User0", 8.0, 80000), True)
 
 # initialize and start overlay layer
-overlay = Overlay("User0", 8.0, 80000, 1.337, 13370, n2o, o2n, a2o, o2a)
-application = Application("C:/Users/Skid/Desktop/Uni/11. Semester/P2P/Folder Sync/User0", o2a, a2o)
+overlay = Overlay("User0", "localhost", 50000, "localhost", 13370, n2o, o2n, a2o, o2a)
+#application = Application("C:/Users/Skid/Desktop/Uni/11. Semester/P2P/Folder Sync/User0", o2a, a2o)
+application = Application("User0/", o2a, a2o)
+network1 = Network("localhost", 50001, 50000, 60000, 10, n2o, o2n, 2)
+network1.run()
+
+
+
+
+
 
 time.sleep(3)
 
-overlay2 = Overlay("User1", 8.1, 81000, 8.0, 80000, n2otmp, o2ntmp, a2otmp, o2atmp)
-application2 = Application("C:/Users/Skid/Desktop/Uni/11. Semester/P2P/Folder Sync/User1", o2atmp, a2otmp)
+overlay2 = Overlay("User1", "localhost", 50001, "localhost", 50000, n2otmp, o2ntmp, a2otmp, o2atmp)
+#application2 = Application("C:/Users/Skid/Desktop/Uni/11. Semester/P2P/Folder Sync/User1", o2atmp, a2otmp)
+application2 = Application("User1/", o2atmp, a2otmp)
+network2 = Network("localhost", 50000, 50001, 60010, 10, n2otmp, o2ntmp, 2)
+network2.run()
 
 # n2o.put(("ping", 2, 2, 2, "User2", 8.2), True)
 #n2o.put(("pong", 1, [("User2", 8.2, 82000), ("User3", 8.3, 83000), ("User4", 8.4, 84000)]), True)

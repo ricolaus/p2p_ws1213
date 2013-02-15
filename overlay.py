@@ -245,7 +245,7 @@ class Overlay:
             # send pong to sender
             self.putToO2N(("pong", msgID, [(self.ownUsername, self.ownIP, self.ownPort)], targetIP, int(targetPort)))
         elif (msgID in self.pingDict):
-            print "Already got a ping entry with the message ID. (" + str(msgID) + ")"
+            print str(self.ownUsername) + ": Already got a ping entry with the message ID. (" + str(msgID) + ")"
         elif  (msgID  in self.sentPings):
             print "Ping was sent by myself. (" + str(self.ownUsername) + ")"
         else:

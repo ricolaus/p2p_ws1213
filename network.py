@@ -9,6 +9,7 @@ import hashlib
 import re
 from datetime import datetime
 from os import path
+import ast
 
 class Network(object): 
 	def __init__(self, ip, pSend, pRecv, startPort, countPort, recvQueue, sendQueue, mode): 
@@ -32,11 +33,11 @@ class Network(object):
 		t0.start()
 		t1 = Thread(target=self.__sendUdp, args=())
 		t1.start()
-		if self.__mode == 1:
-			t2 = Thread(target=self.__test1, args=())
-			t2.start()
-		t3 = Thread(target=self.__test2, args=())
-		t3.start()
+#		if self.__mode == 1:
+#			t2 = Thread(target=self.__test1, args=())
+#			t2.start()
+#			t3 = Thread(target=self.__test2, args=())
+#			t3.start()
 
 	def __test1(self):
 		print "test1 start"
@@ -77,13 +78,14 @@ class Network(object):
 				continue
 		print "test2 ende"
 
-	def __recvTCP(self, port, filePath, fileHash):
+	def __recvTCP(self, port, fileName, fileHash, filePart):
 		hatshi = ""
 		try:
 			sockRecv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			sockRecv.bind(("", port)) 
 			sockRecv.settimeout(1)
 			sockRecv.listen(1)
+			filePath = "." + fileName + "_" + fileHash + "/" + str(filePart) + fileName
 			index = 1
 			while True: 
 				try:
@@ -126,7 +128,7 @@ class Network(object):
 						bitRate = bitRate + float(len(data)*8) / float((ende - start))
 						bitRateCounter = bitRateCounter + 1
 					print "Transferate %0.3f Mbit/s" % (bitRate / bitRateCounter)
-					filoName = "files/testfile" + str(time.clock())
+					filoName = filePath + str(time.clock())
 					fileRecv = open(filoName,"wb")
 					fileRecv.write(recvData)
 					fileRecv.close()
@@ -225,6 +227,7 @@ class Network(object):
 		while True:
 			try:
 				sendTuple = self.__sendQueue.get(True, 1.0)
+				print sendTuple
 				#Ping
 				#outgoing ping (o2n) := ("ping", pingID, ttl, hops, ownUsername, ownIP, ownPort, targetIP, targetPort)
 				#TODO: ownPort fehlt
@@ -256,13 +259,15 @@ class Network(object):
 					#TODO: IP und Port aendern
 					sendStat = self.__send(sendIP, sendPort, sendTuple)
 				#reqFile (request file)
-				#outgoing reqFile (o2n) := ("reqFile", fileName, fileHash, senderIP, senderPort targetIP, targetPortTCP)
+				#outgoing reqFile (o2n) := ("reqFile", fileName, fileHash, senderIP, senderPort, targetIP, targetPortTCP)
 				elif sendTuple[0] == "reqFile":
 					sendIP = sendTuple[5]
 					sendPort = sendTuple[6]
 					sendTuple = sendTuple[:5]
+					fileName = sendTuple[1]
+					fileHash = sendTuple[2]
 					listenPortTCP = self.__portQueue.get()
-					threadTCP = Thread(target=self.__recvTCP, args=(listenPortTCP, "hallo welt", "hash"))
+					threadTCP = Thread(target=self.__recvTCP, args=(listenPortTCP, fileName, fileHash))
 					self.__threadArray.append(threadTCP)
 					threadTCP.start()
 					sendTuple = self.tupleToString((sendTuple) + (listenPortTCP,))
@@ -389,6 +394,7 @@ class Network(object):
 			elif stat == "pong":
 				(pongID, peerList) = self.stringToTuple(nachricht)
 				pongID = int(pongID)
+				peerList = ast.literal_eval(peerList)
 				#pong (n2n) := ("pong", id, [(username1, ipP1), (username2, ip2), ...])
 				#TODO: peerList konvertieren
 				self.__recvQueue.put((stat, pongID, peerList))
@@ -397,6 +403,7 @@ class Network(object):
 			elif stat == "refFL":
 				(fileList, senderUsername, senderIP, senderPort) = self.stringToTuple(nachricht)
 				senderPort = int(senderPort)
+				fileList = ast.literal_eval(fileList)
 				#incoming refFL (n2o) := ("refFL", fileList, senderUsername, senderIP, senderPort)
 				#TODO: fileList konvertieren
 				self.__recvQueue.put((stat, fileList, senderUsername, senderIP, senderPort))
@@ -408,7 +415,7 @@ class Network(object):
 				#incoming reqFile (n2o) := ("reqFile", fileName, fileHash, senderIP, senderPortTCP)
 				self.__recvQueue.put((stat, fileName, fileHash, senderIP, senderPort, senderPortTCP))
 				#downgoing sendFile (o2n) := ("sendFile", filePath, targetIP, targetPortTCP)
-				self.__sendQueue.put(("sendFile", fileName, senderIP, senderPortTCP))
+				#self.__sendQueue.put(("sendFile", fileName, senderIP, senderPortTCP))
 				#nach oben geben!!!
 		return True
  
@@ -421,18 +428,18 @@ class Network(object):
 #portSend = int(sys.argv[3])
 #mode = int(sys.argv[4])
 
-n2o1 = Queue.Queue()
-o2n1 = Queue.Queue()
-n2o2 = Queue.Queue()
-o2n2 = Queue.Queue()
-
+#n2o1 = Queue()
+#o2n1 = Queue()
+#n2o2 = Queue()
+#o2n2 = Queue()
+#
 eingabe = ""
-
-network2 = Network("localhost", 50001, 50000, 60010, 10, n2o2, o2n2, 2)
-network2.run()
-time.sleep(0.2)
-network1 = Network("localhost", 50000, 50001, 60000, 10, n2o1, o2n1, 1)
-network1.run()
+#
+#network2 = Network("localhost", 50001, 50000, 60010, 10, n2o2, o2n2, 2)
+#network2.run()
+#time.sleep(0.2)
+#network1 = Network("localhost", 50000, 50001, 60000, 10, n2o1, o2n1, 1)
+#network1.run()
 
 
 
@@ -462,10 +469,10 @@ network1.run()
 	
 
 
-
-while 1:
-    eingabe = raw_input("> ") 
-    if eingabe == "ende": 
-        break
- 
-sys.exit(-1)
+#
+#while 1:
+#    eingabe = raw_input("> ") 
+#    if eingabe == "ende": 
+#        break
+# 
+#sys.exit(-1)
