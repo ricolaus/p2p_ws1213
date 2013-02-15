@@ -2,10 +2,8 @@ import threading
 import time
 import os
 import hashlib
-from random import random
 from os.path import isfile, join
 import re
-import ast
 
     
 class Application:
@@ -17,8 +15,8 @@ class Application:
         self.maxReqNumber = 5
         self.maxSendNumber = 5
         #liste der angefragten parts
-        self.reqFiles = []
-        self.sendFiles = []
+        self.reqFiles = {}
+        self.sendFiles = {}
         #queue from and to overlay
         self.inQueue = q1       
         self.outQueue = q2 
@@ -49,31 +47,42 @@ class Application:
             currentCommand = self.inQueue.get(True)
             # print "message received"
             if currentCommand[0] == "refFL":
-                self.processIncRefFl(currentCommand)
+                self.processIncRefFl(currentCommand[1:])
                 
             elif currentCommand[0] == "reqFile":
-                self.processIncReqFile(currentCommand)
-            # TODO: receive message from network    
+                self.processIncReqFile(currentCommand[1:])
+            # TODO: receive message from network  
+            elif currentCommand[0] == "fileTransRecv":
+                self.processIncFileTrans(self, currentCommand[1:])
             else:
                 print "Application ERROR: received unknown message from Overlay "
     
-    def processIncReqFile(self, message):
-        msgType, fileName, fileHash, senderUsername, port = message
+    def processIncFileTrans(self, message):
+        fileName, fileHash, partNumber, stat = message
+        if stat:
+            # TODO: if all parts received do not send more, until they are put together  (dont send and del), del folder
+            self.fileSet[fileName, fileHash][0].append(partNumber)
+            
+        del self.reqFiles.remove[fileName, fileHash, partNumber]
         
-        # TODO: decide to send the file or not
+    
+    def processIncReqFile(self, message):
+        fileName, fileHash, senderUsername, port = message
+        part = 0
+        # TODO: decide to send the file or not, policy
         #maybe add:      and not alreadySendingToReceiver(senderUsername) 
-        if (fileName, fileHash) in self.fileSet and (fileName, fileHash, senderUsername) not in self.sendFiles and self.maxSendNumber > len(self.sendFiles):
+        if (fileName, fileHash) in self.fileSet and (fileName, fileHash, part) not in self.sendFiles and self.maxSendNumber > len(self.sendFiles):
             # TODO: problem if filename is a version-filename, so real-file-name and filetablename is different from 
             fsName = createFSname(fileName, self.fileSet[(fileName, fileHash)][3])
             filepath = join(self.folderName, fsName)
-            self.sendFiles.append((fileName, fileHash, senderUsername))
-            reply = ("sendFile", filepath, senderUsername, port, 0)
+            self.sendFiles[(fileName, fileHash, part)] = senderUsername
+            reply = ("sendFile", filepath, senderUsername, port, part)
             self.outQueue.put(reply, True)
             
         
     
     def processIncRefFl(self, message):
-        msgType, recFiles, sendUser, urgent = message
+        recFiles, sendUser, urgent = message
         newFiles = self.compareFileLists(recFiles)
         #message urgent? -> send refFl
         if urgent:
@@ -82,11 +91,12 @@ class Application:
         # TODO: new function that chooses which file to request
         if len(newFiles) > 0:
             for fname, fhash in newFiles.iterkeys():
-                #TODO: Parts
-                if (fname, fhash, sendUser) not in self.reqFiles and self.maxReqNumber > len(self.reqFiles) :
-                    #
+                #TODO: Parts: policy which to take
+                part = 0
+                if (fname, fhash, part) not in self.reqFiles and self.maxReqNumber > len(self.reqFiles) :
+                    # TODO: reqFile-message needs parts requested
                     reply = ("reqFile", fname, fhash, sendUser)
-                    self.reqFiles.append((fname, fhash, sendUser))
+                    self.reqFiles[(fname, fhash, part)] = sendUser
                     self.createpartsFolder(fname, fhash)
                     self.outQueue.put(reply, True)
     
@@ -137,14 +147,13 @@ class Application:
                 versions.append(self.fileSet[i][3])
         return int(max(versions)) + 1
         # TODO: evtl. noch reqSet anschauen damit nicht gleichzeitig eine naechste versionsnummer gewaehlt wird, oder lock auf fkt.
-        pass
+        
     
     def alreadySendingToReceiver(self, receiver):
-        for it in self.reqFiles:
-            if it[2] == receiver:
+        if receiver in self.reqFiles.viewvalues():
                 return True
-        
-        return False
+        else:
+            return False
         
 #    #lookup files in the shared directory and change fileset accordingly
 #    #(name, hash, [partlist], insgesamte anz parts)
