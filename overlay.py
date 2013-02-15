@@ -388,8 +388,7 @@ class Overlay:
                     self.processOutRefFL(message)
                 elif message[0] == "reqFile":
                     self.processOutReqFile(message)
-                #TODO: change message name to sendFile
-                elif message[0] == "answerReq":
+                elif message[0] == "sendFile":
                     self.processDownSendFile(message)
                 else:
                     print "Unknown message type: " + str(message[0]) 

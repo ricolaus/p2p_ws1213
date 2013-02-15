@@ -62,7 +62,7 @@ class Application:
             # TODO: problem if filename is a version-filename, so real-file-name and filetablename is different from 
             filepath = join(self.folderName, fileName)
             self.sendFiles.append((fileName, fileHash, senderUsername))
-            reply = ("answerReq", filepath, senderUsername, port)
+            reply = ("sendFile", filepath, senderUsername, port)
             self.outQueue.put(reply, True)
             
         
