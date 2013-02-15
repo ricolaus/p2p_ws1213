@@ -60,7 +60,8 @@ class Application:
         
         if (fileName, fileHash) in self.fileSet and (fileName, fileHash, senderUsername) not in self.sendFiles and self.maxSendNumber > len(self.sendFiles):
             # TODO: problem if filename is a version-filename, so real-file-name and filetablename is different from 
-            filepath = join(self.folderName, fileName)
+            fsName = createFSname(fileName, self.fileSet[(fileName, fileHash)][3])
+            filepath = join(self.folderName, fsName)
             self.sendFiles.append((fileName, fileHash, senderUsername))
             reply = ("sendFile", filepath, senderUsername, port)
             self.outQueue.put(reply, True)
@@ -180,6 +181,7 @@ def getHash(filepath):
     return md5.hexdigest()
     
     
+
 def getFileVersion( filename):
     #filename = "ganzGrossgz(copy20)"
     p = re.compile(r"(.+)\(copy([1-9]+\d*)\)\.([^.]+)$")
@@ -195,7 +197,7 @@ def getFileVersion( filename):
     return (filename, "0")
         
             
-def createFileVersion(filename, vers):
+def createFSname(filename, vers):
     p = re.compile(r"(.+)\.([^.]+)$")
     r = re.compile(r"(.?[^.]+)$")
     a = r.match(filename)
