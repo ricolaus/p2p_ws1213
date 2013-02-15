@@ -37,8 +37,7 @@ class Network(object):
 			t2.start()
 		t3 = Thread(target=self.__test2, args=())
 		t3.start()
-            
-    
+
 	def __test1(self):
 		print "test1 start"
 #		while True:
@@ -55,13 +54,13 @@ class Network(object):
 #			if eingabe == "ende":
 #				break
 		#outgoing ping (o2n) := ("ping", pingID, ttl, hops, ownUsername, ownIP, targetIP, targetPort)
-		self.__sendQueue.put(("ping", 159, 4, 0, "ownUsername", self.__ip, "127.0.0.1", self.__portSend))
+		self.__sendQueue.put(("ping", 159, 4, 0, "ownUsername", self.__ip, self.__portRecv, "127.0.0.1", self.__portSend))
 		#outgoing pong (o2n) := ("pong", id, [(username1, ipP1), (username2, ip2), ...], targetIP, targetPort)
 		self.__sendQueue.put(("pong", 158, "List of (username_n, ip_n)", "127.0.0.1", self.__portSend))
 		#outgoing refFL (o2n) := ("refFL", fileList, ownUsername, targetIP, targetPort)
-		self.__sendQueue.put(("refFL", "fileList", "ownUsername", "127.0.0.1", self.__portSend))
+		self.__sendQueue.put(("refFL", "fileList", "ownUsername", self.__ip, self.__portRecv, "127.0.0.1", self.__portSend))
 		#outgoing reqFile (o2n) := ("reqFile", fileName, fileHash, senderIP, targetIP, targetPort)
-		self.__sendQueue.put(("reqFile", "files/filetrans", "fileHash", self.__ip, "127.0.0.1", self.__portSend))
+		self.__sendQueue.put(("reqFile", "files/filetrans", "fileHash", self.__ip, self.__portRecv, "127.0.0.1", self.__portSend))
 		#downgoing sendFile (o2n) := ("sendFile", filePath, targetIP, targetPortUDP, targetPortTCP)
 	#	self.__sendQueue.put(("sendFile", "filePath", "127.0.0.1", self.__portSend, 1337))
 		print "test1 ende"        
@@ -227,12 +226,12 @@ class Network(object):
 			try:
 				sendTuple = self.__sendQueue.get(True, 1.0)
 				#Ping
-				#outgoing ping (o2n) := ("ping", pingID, ttl, hops, ownUsername, ownIP, targetIP, targetPort)
+				#outgoing ping (o2n) := ("ping", pingID, ttl, hops, ownUsername, ownIP, ownPort, targetIP, targetPort)
 				#TODO: ownPort fehlt
 				if sendTuple[0] == "ping":
-					sendIP = sendTuple[6]
-					sendPort = sendTuple[7]
-					sendTuple = sendTuple[:6]
+					sendIP = sendTuple[7]
+					sendPort = sendTuple[8]
+					sendTuple = sendTuple[:7]
 					sendTuple = self.tupleToString(sendTuple)
 					#ping (n2n) := ("ping", pingID, ttl, hops, sendUsername, sendIP, sendPort)
 					sendStat = self.__send(sendIP, sendPort, sendTuple)
@@ -246,22 +245,22 @@ class Network(object):
 					#pong (n2n) := ("pong", id, [(username1, ipP1), (username2, ip2), ...])
 					sendStat = self.__send(sendIP, sendPort, sendTuple)
 				#RefFL (refresh filelist)
-				#outgoing refFL (o2n) := ("refFL", fileList, ownUsername, targetIP, targetPort)
+				#outgoing refFL (o2n) := ("refFL", fileList, ownUsername, ownIP, ownPort, targetIP, targetPort)
+										#("refFL", "fileList", "ownUsername", self.__ip, self.__portRecv, "127.0.0.1", self.__portSend)
 				elif sendTuple[0] == "refFL":
-					sendIP = sendTuple[3]
-					sendPort = sendTuple[4]
-					sendTuple = sendTuple[:3]
-					sendTuple = (sendTuple) + (self.__ip,  self.__portRecv)
+					sendIP = sendTuple[5]
+					sendPort = sendTuple[6]
+					sendTuple = sendTuple[:5]
 					sendTuple = self.tupleToString(sendTuple)
 					#refFL (n2n) := ("refFL", fileList, senderUsername, senderIP, senderPort)
 					#TODO: IP und Port aendern
 					sendStat = self.__send(sendIP, sendPort, sendTuple)
 				#reqFile (request file)
-				#outgoing reqFile (o2n) := ("reqFile", fileName, fileHash, senderIP, targetIP, targetPort)
+				#outgoing reqFile (o2n) := ("reqFile", fileName, fileHash, senderIP, senderPort targetIP, targetPortTCP)
 				elif sendTuple[0] == "reqFile":
-					sendIP = sendTuple[4]
-					sendPort = sendTuple[5]
-					sendTuple = sendTuple[:4]
+					sendIP = sendTuple[5]
+					sendPort = sendTuple[6]
+					sendTuple = sendTuple[:5]
 					listenPortTCP = self.__portQueue.get()
 					threadTCP = Thread(target=self.__recvTCP, args=(listenPortTCP, "hallo welt", "hash"))
 					self.__threadArray.append(threadTCP)
@@ -378,13 +377,13 @@ class Network(object):
 			#ping (n2n) := ("ping", pingID, ttl, hops, sendUsername, sendIP, sendPort)
 			#TODO: sendPort fehlt noch
 			if stat == "ping":
-				(pingID, ttl, hops, senderUsername, senderIP) = self.stringToTuple(nachricht)
+				(pingID, ttl, hops, senderUsername, senderIP, senderPort) = self.stringToTuple(nachricht)
 				pingID = int(pingID)
 				ttl = int(ttl)
 				hops = int(hops)
 				#incoming ping (n2o) := ("ping", pingID, ttl, hops, senderUsername, senderIP, senderPort)
 				#TODO: senderPort fehlt
-				self.__recvQueue.put((stat, pingID, ttl, hops, senderUsername, senderIP))
+				self.__recvQueue.put((stat, pingID, ttl, hops, senderUsername, senderIP, senderPort))
 			#Pong
 			#incoming pong (n2o) := ("pong", id, [(username1, ip1), (username2, ip2), ...])
 			elif stat == "pong":
@@ -404,10 +403,10 @@ class Network(object):
 			#reqFile (request file)
 			#reqFile (n2n) := ("reqFile", fileName, fileHash, senderIP, listenPortTCP)
 			elif stat == "reqFile":
-				(fileName, fileHash, senderIP, senderPortTCP) = self.stringToTuple(nachricht)
+				(fileName, fileHash, senderIP, senderPort, senderPortTCP) = self.stringToTuple(nachricht)
 				senderPortTCP = int(senderPortTCP)
 				#incoming reqFile (n2o) := ("reqFile", fileName, fileHash, senderIP, senderPortTCP)
-				self.__recvQueue.put((stat, fileName, fileHash, senderIP, senderPortTCP))
+				self.__recvQueue.put((stat, fileName, fileHash, senderIP, senderPort, senderPortTCP))
 				#downgoing sendFile (o2n) := ("sendFile", filePath, targetIP, targetPortTCP)
 				self.__sendQueue.put(("sendFile", fileName, senderIP, senderPortTCP))
 				#nach oben geben!!!
@@ -429,44 +428,44 @@ o2n2 = Queue.Queue()
 
 eingabe = ""
 
-#network2 = Network("localhost", 50001, 50000, 60010, 10, n2o2, o2n2, 2)
-#network2.run()
-#time.sleep(0.2)
-#network1 = Network("localhost", 50000, 50001, 60000, 10, n2o1, o2n1, 1)
-#network1.run()
-
-a = 2
+network2 = Network("localhost", 50001, 50000, 60010, 10, n2o2, o2n2, 2)
+network2.run()
+time.sleep(0.2)
+network1 = Network("localhost", 50000, 50001, 60000, 10, n2o1, o2n1, 1)
+network1.run()
 
 
 
-if path.exists("files/filetrans"):
-	fo = open("files/filetrans", "r")
-	text = fo.readline();
-	print "1" + text
-	text = fo.readline();
-	print "2" + text
-	text = fo.readline();
-	print "3" + text
-	text = fo.readline();
-	print "4" + text
-	fo.close()
-else:
-	fo = open("files/filetrans", "wb")
-	text = ""
-	for i in range(1024):
-		text = text + chr(random.randint(33, 126))
-	fo.write("<fileName>\n")
-	fo.write("<fileHash>\n")
-	fo.write("<partCount>\n")
-	fo.write("<partList>\n")
-	fo.close()
+
+
+#if path.exists("files/filetrans"):
+#	fo = open("files/filetrans", "r")
+#	text = fo.readline();
+#	print "1" + text
+#	text = fo.readline();
+#	print "2" + text
+#	text = fo.readline();
+#	print "3" + text
+#	text = fo.readline();
+#	print "4" + text
+#	fo.close()
+#else:
+#	fo = open("files/filetrans", "wb")
+#	text = ""
+#	for i in range(1024):
+#		text = text + chr(random.randint(33, 126))
+#	fo.write("<fileName>\n")
+#	fo.write("<fileHash>\n")
+#	fo.write("<partCount>\n")
+#	fo.write("<partList>\n")
+#	fo.close()
 	
 
 
 
-#while 1:
-#    eingabe = raw_input("> ") 
-#    if eingabe == "ende": 
-#        break
+while 1:
+    eingabe = raw_input("> ") 
+    if eingabe == "ende": 
+        break
  
 sys.exit(-1)
