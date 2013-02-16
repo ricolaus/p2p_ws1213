@@ -128,6 +128,7 @@ class Application:
                     self.createpartsFolder(fname, fhash, newFiles[fname,fhash][1])
                     reply = ("reqFile", fname, fhash, part, sendUser)
                     self.outQueue.put(reply, True)
+                    break
     
     
     #compare received Filelist and return List of new files    
@@ -182,13 +183,13 @@ class Application:
         
     
     def alreadySendingToReceiver(self, receiver):
-        if receiver in self.reqFiles.viewvalues():
+        if receiver in self.reqFiles.values():
                 return True
         else:
             return False
     
     def alreadyReceivingFromSender(self, sender):
-        if sender in self.sendFiles.viewvalues():
+        if sender in self.sendFiles.values():
                 return True
         else:
             return False
