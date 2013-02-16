@@ -9,8 +9,9 @@ import os
 import ast
 
 class Network(object): 
-	def __init__(self, ip, pSend, pRecv, startPort, countPort, recvQueue, sendQueue, mode): 
+	def __init__(self, userFolder, ip, pSend, pRecv, startPort, countPort, recvQueue, sendQueue, mode): 
 		self.__ip = ip
+		self.__userFolder = userFolder
 		self.__recvQueue = recvQueue
 		self.__sendQueue = sendQueue
 		self.__portRecv = pRecv
@@ -81,7 +82,7 @@ class Network(object):
 			sockRecv.bind(("", port)) 
 			sockRecv.settimeout(1)
 			sockRecv.listen(1)
-			filePath = "." + fileName + "_" + fileHash
+			filePath = self.__userFolder + "." + fileName + "_" + fileHash
 			index = 1
 			while True: 
 				try:
@@ -134,13 +135,14 @@ class Network(object):
 						# bitRate = bitRate + float(len(data)*8) / float((ende - start))
 						bitRateCounter = bitRateCounter + 1
 					print "Transferate %0.3f Mbit/s" % (bitRate / bitRateCounter)
-					filoName = fileName + str(time.clock())
+					filoName = "part" + str(filePart)
 					if not os.path.isdir(filePath):
 						os.mkdir(filePath)
-					fileRecv = open(filePath + "/" + filoName,"wb")
+					print "%s %s %s" % (filePath , filoName, filePart)
+					fileRecv = open(filePath  + "/" + filoName,"wb")
 					fileRecv.write(recvData)
 					fileRecv.close()
-					print datetime.now().microsecond
+					#print datetime.now().microsecond
 					self.__portQueue.put(port)
 					self.__recvQueue.put(("fileTransRecv", fileName, fileHash, filePart, True))
 					break
@@ -150,10 +152,10 @@ class Network(object):
 			sockRecv.close()
 		#nachricht an appli das daten nicht gesendet wurden oder return
 
-	def __sendTCP(self, ip, port, filePath):
+	def __sendTCP(self, ip, portUDP, portTCP, filePath):
 		sockSend = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-		print ip + str(port)
-		sockSend.connect((ip, int(port)))
+		print ip + str(portTCP)
+		sockSend.connect((ip, int(portTCP)))
 		try: 
 			nachricht = "LETSGOON;" +  filePath
 			sockSend.send(nachricht) 
@@ -164,9 +166,9 @@ class Network(object):
 					break
 				except socket.timeout:
 					if index == 10:
-						print "Daten wurden nicht gesendet die DRITTE %d" % port
+						print "Daten wurden nicht gesendet die DRITTE %d" % portTCP
 						self.__portQueue.put(port)
-						self.__recvQueue.put(("fileTransSend", ip, filePath, False))
+						self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, False))
 						#nachricht an appli das daten nicht gesendet wurden					
 						return
 					index = index + 1
@@ -184,7 +186,7 @@ class Network(object):
 					if not chunk:
 						break  # EOF
 					sockSend.sendall(chunk)
-					self.__recvQueue.put(("fileTransSend", ip, filePath, False))
+				self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, True))
 		except socket.error as msg:
 			print "sendTCP: " + str(msg)
 		finally: 
@@ -282,14 +284,15 @@ class Network(object):
 					#reqFile (n2n) := ("reqFile", fileName, fileHash, senderIP, listenPortTCP)
 					sendStat = self.__send(sendIP, sendPort, sendTuple)
 				#sendFile (permission to network layer to send the file)
-				#downgoing sendFile (o2n) := ("sendFile", filePath, partNumm, targetIP, targetPortTCP)
+				#downgoing sendFile (o2n) := ("sendFile", filePath, partNumm, targetIP, targetUDP, targetPortTCP)
 				elif sendTuple[0] == "sendFile":
 					sendIP = sendTuple[3]
-					sendPortTCP = sendTuple[4]
+					sendPortUDP = sendTuple[4]
+					sendPortTCP = sendTuple[5]
 					partNumm = sendTuple[2]
 					partNumm = partNumm
 					filePath = sendTuple[1]
-					threadTCP = Thread(target=self.__sendTCP, args=(sendIP, sendPortTCP, filePath))
+					threadTCP = Thread(target=self.__sendTCP, args=(sendIP, sendPortUDP, sendPortTCP, filePath))
 					self.__threadArray.append(threadTCP)
 					threadTCP.start()
 				print sendStat

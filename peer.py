@@ -67,11 +67,13 @@ o2ntmp = Queue.Queue()
 #n2o.put(("ping", 1, 4, 0, "User1", 8.1, 81000), True)
 #n2otmp.put(("ping", 1, 4, 0, "User0", 8.0, 80000), True)
 
+
+user0Folder = "User0/"
 # initialize and start overlay layer
 overlay = Overlay("User0", "localhost", 50000, "localhost", 13370, n2o, o2n, a2o, o2a)
 #application = Application("C:/Users/Skid/Desktop/Uni/11. Semester/P2P/Folder Sync/User0", o2a, a2o)
-application = Application("User0/", o2a, a2o)
-network1 = Network("localhost", 50001, 50000, 60000, 10, n2o, o2n, 2)
+application = Application(user0Folder, o2a, a2o)
+network1 = Network(user0Folder, "localhost", 50001, 50000, 60000, 10, n2o, o2n, 2)
 network1.run()
 
 
@@ -81,10 +83,11 @@ network1.run()
 
 time.sleep(2.5)
 
+user1Folder = "User1/"
 overlay2 = Overlay("User1", "localhost", 50001, "localhost", 50000, n2otmp, o2ntmp, a2otmp, o2atmp)
 #application2 = Application("C:/Users/Skid/Desktop/Uni/11. Semester/P2P/Folder Sync/User1", o2atmp, a2otmp)
-application2 = Application("User1/", o2atmp, a2otmp)
-network2 = Network("localhost", 50000, 50001, 60010, 10, n2otmp, o2ntmp, 2)
+application2 = Application(user1Folder, o2atmp, a2otmp)
+network2 = Network(user1Folder, "localhost", 50000, 50001, 60010, 10, n2otmp, o2ntmp, 2)
 network2.run()
 
 # n2o.put(("ping", 2, 2, 2, "User2", 8.2), True)
