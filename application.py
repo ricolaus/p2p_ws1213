@@ -285,10 +285,10 @@ def createFSname(filename, vers):
     # TODO: error message
     return None    
 
-x = re.compile(r"\.(.+)_([0-9a-f]{32})")    
-y = x.match(r".README_dc398ec03cf524964ecad3577deb4678")
-if y:
-    print y.groups()
+#x = re.compile(r"\.(.+)_([0-9a-f]{32})")    
+#y = x.match(r".README_dc398ec03cf524964ecad3577deb4678")
+#if y:
+#    print y.groups()
 
 def getFileSize(filePath):
     fileSize = os.path.getsize(filePath)
