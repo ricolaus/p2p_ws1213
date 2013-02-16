@@ -294,7 +294,7 @@ class Network(object):
 					partNumm = sendTuple[2]
 					partNumm = partNumm
 					filePath = sendTuple[1]
-					threadTCP = Thread(target=self.__sendTCP, args=(sendIP, sendPortUDP, sendPortTCP, int(filePath)))
+					threadTCP = Thread(target=self.__sendTCP, args=(sendIP, sendPortUDP, sendPortTCP, int(filePart)))
 					self.__threadArray.append(threadTCP)
 					threadTCP.start()
 				#print sendStat
