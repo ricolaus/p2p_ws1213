@@ -228,7 +228,7 @@ class Overlay:
         
         if (ttl > 1) and (msgID not in self.pingDict) and (msgID not in self.sentPings):
             # add to ping dictionary
-            self.pingDict[msgID] = (identifier, ttl)
+            self.pingDict[msgID] = (identifier, 2^(ttl-2)+1)
             # if ttl is to high
             if ttl + hops > 7:
                 ttl = 7 - hops
@@ -241,11 +241,11 @@ class Overlay:
                     self.putToO2N((msgType, msgID, ttl-1, hops+1, self.ownUsername, self.ownIP, self.ownPort, targetIP, int(targetPort)))
         elif (ttl == 1) and (msgID not in self.pingDict) and (msgID not in self.sentPings):
             # add to ping dictionary
-            self.pingDict[msgID] = (identifier, ttl)
+            self.pingDict[msgID] = (identifier, 0)
             # split identifier
             targetIP, targetPort = self.splitIpAndPort(self.pingDict[msgID][0])
             # send pong to sender
-            self.putToO2N(("pong", msgID, [(self.ownUsername, self.ownIP, self.ownPort)], targetIP, int(targetPort)))
+            #self.putToO2N(("pong", msgID, [(self.ownUsername, self.ownIP, self.ownPort)], targetIP, int(targetPort)))
         elif (msgID in self.pingDict):
             print str(self.ownUsername) + ": Already got a ping entry with the message ID. (" + str(msgID) + ")"
         elif  (msgID  in self.sentPings):
@@ -414,6 +414,8 @@ class Overlay:
         for neighbor in self.neighbors:
             if(neighbor[0] == senderUsername and neighbor[1] == senderIdentifier):
                 self.putToO2A((msgType, fileList, senderUsername, False))
+                self.neighbors.append((senderUsername, senderIdentifier, 5))
+                self.neighbors.remove(neighbor)
                 existing = True
                 break
         
