@@ -193,15 +193,15 @@ class Overlay:
                 message = self.getFromN2O()
                 if message[0] == "ping":
                     self.processping(message)
-                    # print "Reenter watchN2O() from processping"
                 elif message[0] == "pong":
                     self.processpong(message)
-                    # print "Reenter watchN2O() from processpong"
                 elif message[0] == "refFL":
                     self.processIncRefFL(message)
                 elif message[0] == "reqFile":
                     self.processIncReqFile(message)
                 elif message[0] == "fileTransSend":
+                    self.processUpFileTransSend(message)
+                elif message[0] == "fileTransRecv":
                     self.putToO2A(message)
                 else:
                     print "Unknown message type: " + str(message[0]) 
@@ -481,7 +481,7 @@ class Overlay:
     def processDownSendFile(self, message):
         # print "Enter processDownSendFile()"
         
-        msgType, filePath, targetUsername, targetPortTCP, partNumber = message
+        msgType, filePath, partNumber, targetUsername, targetPortTCP = message
         
         for neighbor in self.neighbors:
             if(neighbor[0] == targetUsername):
@@ -489,5 +489,28 @@ class Overlay:
                 targetIP, targetPortUDP = self.splitIpAndPort(neighbor[1])
                 self.putToO2N((msgType, filePath, partNumber, targetIP, targetPortTCP))
                 break;        
+        
+    #===========================================================================
+    # processUpFileTransSend
+    #
+    # Processes the up going 'file transfer sent' message to application layer.
+    #===========================================================================
+    def processUpFileTransSend (self, message):
+        print "Enter processDownSendFile()"
+        
+        msgType, targetIP, targetPortUDP, filePath, successflag = message
+        
+        targetIdentifier = str(targetIP) + ":" + str(targetPortUDP)
+        
+        for neighbor in self.neighbors:
+            if(neighbor[1] == targetIdentifier):
+                self.putToO2A((msgType, neighbor[0], filePath, successflag))
+                break; 
+        
+        
+        
+        
+        
+        
         
         
