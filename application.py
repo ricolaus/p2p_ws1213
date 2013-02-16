@@ -122,7 +122,7 @@ class Application:
             for fname, fhash in newFiles.iterkeys():
                 #TODO: Parts: policy which to take
                 part = "0"
-                if (fname, fhash, part) not in self.reqFiles and self.maxReqNumber > len(self.reqFiles) :
+                if (fname, fhash, part) not in self.reqFiles and self.maxReqNumber > len(self.reqFiles) and not self.alreadyReceivingFromSender(sendUser) :
                     # TODO: reqFile-message needs parts requested
                     self.reqFiles[(fname, fhash, part)] = sendUser
                     self.createpartsFolder(fname, fhash, newFiles[fname,fhash][1])
@@ -187,6 +187,12 @@ class Application:
         else:
             return False
     
+    def alreadyReceivingFromSender(self, sender):
+        if sender in self.sendFiles.viewvalues():
+                return True
+        else:
+            return False
+        
     #returns directory of existing incomplete files (parts folder) formatet like self.fileSet  
     def incompletFileDir(self):
         dirList = {}
