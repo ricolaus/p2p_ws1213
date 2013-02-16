@@ -279,7 +279,7 @@ class Network(object):
 					fileHash = sendTuple[2]
 					filePart = sendTuple[3]
 					listenPortTCP = self.__portQueue.get()
-					threadTCP = Thread(target=self.__recvTCP, args=(listenPortTCP, fileName, fileHash, 0))
+					threadTCP = Thread(target=self.__recvTCP, args=(listenPortTCP, fileName, fileHash, int(filePart)))
 					self.__threadArray.append(threadTCP)
 					threadTCP.start()
 					sendTuple = self.tupleToString((sendTuple) + (listenPortTCP,))
@@ -294,7 +294,7 @@ class Network(object):
 					partNumm = sendTuple[2]
 					partNumm = partNumm
 					filePath = sendTuple[1]
-					threadTCP = Thread(target=self.__sendTCP, args=(sendIP, sendPortUDP, sendPortTCP, int(filePart)))
+					threadTCP = Thread(target=self.__sendTCP, args=(sendIP, sendPortUDP, sendPortTCP, filePath))
 					self.__threadArray.append(threadTCP)
 					threadTCP.start()
 				#print sendStat
