@@ -53,11 +53,11 @@ class Application:
                 self.processIncReqFile(currentCommand[1:])
             # TODO: receive message from network  
             elif currentCommand[0] == "fileTransRecv":
-                self.processIncFileTrans(self, currentCommand[1:])
+                self.processIncFileTransRec(self, currentCommand[1:])
             else:
                 print "Application ERROR: received unknown message from Overlay "
     
-    def processIncFileTrans(self, message):
+    def processIncFileTransRec(self, message):
         fileName, fileHash, partNumber, stat = message
         if stat:
             # TODO: if all parts received do not send more, until they are put together  (dont send and del), del folder
@@ -76,7 +76,7 @@ class Application:
             fsName = createFSname(fileName, self.fileSet[(fileName, fileHash)][3])
             filepath = join(self.folderName, fsName)
             self.sendFiles[(fileName, fileHash, part)] = senderUsername
-            reply = ("sendFile", filepath, senderUsername, port, part)
+            reply = ("sendFile", filepath,  part, senderUsername, port)
             self.outQueue.put(reply, True)
             
         
@@ -154,7 +154,22 @@ class Application:
                 return True
         else:
             return False
-        
+    
+    #returns directory of existing incomplete files  formatet like self.fileSet  
+    def incompletFileDir(self):
+        dirList = {}
+        x = re.compile(r"\.(.+)_([0-9a-f]{32})$")  
+        pathes = os.listdir(self.folderName)  
+        for path in pathes:
+            y = x.match(r".README_dc398ec03cf524964ecad3577deb4678")
+            
+            if os.path.isdir(join(self.folderName, path)):
+                for f in os.listdir(join(self.folderName, path)):
+                    pass
+                   # dirList[y.group(1,2)] = ([], size, time, version )
+            if y:
+                print y.groups()
+        pass
 #    #lookup files in the shared directory and change fileset accordingly
 #    #(name, hash, [partlist], insgesamte anz parts)
 #    def lookupDirFiles(self):
@@ -190,7 +205,8 @@ class Application:
 #                fhash = getHash(fil)
 #                partnumbers = 70011/ self.partSize
 #                newFileList.append((name, fhash, [], partnumbers))
-        
+      
+
 def getHash(filepath): 
     md5 = hashlib.md5()
     f = open(filepath,'rb')
@@ -233,7 +249,11 @@ def createFSname(filename, vers):
         return name + vers + "." +extension
     # TODO: error message
     return None    
-    
+
+x = re.compile(r"\.(.+)_([0-9a-f]{32})")    
+y = x.match(r".README_dc398ec03cf524964ecad3577deb4678")
+if y:
+    print y.groups()
 #a = getFileVersion("")
 #print a.groups()
 #a = Application()
