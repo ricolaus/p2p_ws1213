@@ -5,9 +5,10 @@ import hashlib
 from os.path import isfile, join
 import re
 
-    
+partSize = 1024
+   
 class Application:
-    def __init__(self, path = "/home/imon/Uni-11/P2P/Test", q1 = None, q2 = None, q3=None):
+    def __init__(self, path = "/User1/", q1 = None, q2 = None, q3=None):
         self.folderName = path
         self.mainLoopTimeout = 3
         self.fileSet = {}
@@ -34,6 +35,8 @@ class Application:
             #fss = str(self.currentDirFiles())
             #right = ast.literal_eval(fss)
             self.fileSet = self.currentDirFiles()
+            
+            self.fileSet.update( self.incompletFileDir() )
             message = ("refFL", self.fileSet)
             #message = ("refFL", right)
             self.outQueue.put(message, True)
@@ -53,25 +56,46 @@ class Application:
                 self.processIncReqFile(currentCommand[1:])
             # TODO: receive message from network  
             elif currentCommand[0] == "fileTransRecv":
-                self.processIncFileTransRec(self, currentCommand[1:])
+                self.processIncFileTransRec(currentCommand[1:])
+            elif currentCommand[0] == "fileTransSend":
+                self.processIncFileTransSend(currentCommand[1:])
+                # "fileTransSend ", targetUsername, filePath, successflag)
             else:
                 print "Application ERROR: received unknown message from Overlay "
+                
+    def processIncFileTransSend(self, message):
+        #target Username is also identifier
+        targetUsername, filePath, stat = message
+        for key, value in self.sendFiles.items():
+            if value == targetUsername:
+                del self.sendFiles[key]
+        
     
     def processIncFileTransRec(self, message):
         fileName, fileHash, partNumber, stat = message
         if stat:
             # TODO: if all parts received do not send more, until they are put together  (dont send and del), del folder
-            self.fileSet[fileName, fileHash][0].append(partNumber)
+            #create fileSet entry if first part received
+            if (fileName, fileHash) not in self.fileSet:
+                infoFile = open(join(self.folderName + r"."+fileName+r"_"+fileHash, r".info"), 'r')
+                maxParts = infoFile.read()
+                infoFile.close()
+                self.fileSet[fileName, fileHash] = ([str(partNumber)], maxParts, 0, "0")
+            else:
+                self.fileSet[(fileName, fileHash)][0].append(str(partNumber))
+                
             
-        del self.reqFiles.remove[fileName, fileHash, partNumber]
+            #self.fileSet[(fileName, fileHash)][0].append(partNumber)
+            
+        del self.reqFiles[fileName, fileHash, str(partNumber)]
         
     
     def processIncReqFile(self, message):
-        fileName, fileHash, senderUsername, port = message
-        part = 0
+        fileName, fileHash, part, senderUsername, port = message
+        #part = "0"
         # TODO: decide to send the file or not, policy
         #maybe add:      and not alreadySendingToReceiver(senderUsername) 
-        if (fileName, fileHash) in self.fileSet and (fileName, fileHash, part) not in self.sendFiles and self.maxSendNumber > len(self.sendFiles):
+        if (fileName, fileHash) in self.fileSet and not self.alreadySendingToReceiver(senderUsername) and (fileName, fileHash, part) not in self.sendFiles and self.maxSendNumber > len(self.sendFiles):
             # TODO: problem if filename is a version-filename, so real-file-name and filetablename is different from 
             fsName = createFSname(fileName, self.fileSet[(fileName, fileHash)][3])
             filepath = join(self.folderName, fsName)
@@ -92,12 +116,12 @@ class Application:
         if len(newFiles) > 0:
             for fname, fhash in newFiles.iterkeys():
                 #TODO: Parts: policy which to take
-                part = 0
+                part = "0"
                 if (fname, fhash, part) not in self.reqFiles and self.maxReqNumber > len(self.reqFiles) :
                     # TODO: reqFile-message needs parts requested
-                    reply = ("reqFile", fname, fhash, sendUser)
                     self.reqFiles[(fname, fhash, part)] = sendUser
-                    self.createpartsFolder(fname, fhash)
+                    self.createpartsFolder(fname, fhash, newFiles[fname,fhash][1])
+                    reply = ("reqFile", fname, fhash, part, sendUser)
                     self.outQueue.put(reply, True)
     
     
@@ -126,19 +150,22 @@ class Application:
                 #if version != "0":
                 #    print flistname + "\t" + fname +"\t" + version        
                 fhash = getHash(join(self.folderName, fname))
-                size = os.path.getsize(join(self.folderName, fname))
+                size = getPartCount(join(self.folderName, fname))
                 time = os.path.getmtime(join(self.folderName, fname))
                 filelist[(flistname, fhash)] = ([], size, time, version )
             
             #onlyfiles = [ f for f in listdir(mypath) if isfile(join(mypath,f)) ]
         return filelist
 
-    def createpartsFolder(self, filename, fhash):
+    def createpartsFolder(self, filename, fhash, partNumber):
 
         dirName = r"." + filename + r"_" + fhash
         dirPath = join(self.folderName, dirName)
         if not os.path.isdir(dirPath):
             os.mkdir(dirPath)
+            infoFile = open(join(dirPath, r".info"), 'w')
+            infoFile.write(str(partNumber))
+            infoFile.close()
      
     def nextVersion(self, filename, fhash):
         versions = []
@@ -155,21 +182,29 @@ class Application:
         else:
             return False
     
-    #returns directory of existing incomplete files  formatet like self.fileSet  
+    #returns directory of existing incomplete files (parts folder) formatet like self.fileSet  
     def incompletFileDir(self):
         dirList = {}
+        partsList = []
+
         x = re.compile(r"\.(.+)_([0-9a-f]{32})$")  
         pathes = os.listdir(self.folderName)  
         for path in pathes:
-            y = x.match(r".README_dc398ec03cf524964ecad3577deb4678")
-            
-            if os.path.isdir(join(self.folderName, path)):
-                for f in os.listdir(join(self.folderName, path)):
-                    pass
-                   # dirList[y.group(1,2)] = ([], size, time, version )
+            y = x.match(path)
             if y:
-                print y.groups()
-        pass
+                dirPath = join(self.folderName, path)
+                if os.path.isdir(dirPath):
+                    for f in os.listdir(dirPath):
+                        if f[:4] == "part":
+                            partsList.append(f[4:])
+                if len(partsList) > 0:
+                    infoFile = open(join(dirPath, r".info"), 'r')
+                    maxParts = infoFile.read()
+                    infoFile.close()
+                    dirList[y.group(1,2)] = (partsList, maxParts, 0, "0")
+                    # dirList[y.group(1,2)] = ([], size, time, version )
+        return dirList
+    
 #    #lookup files in the shared directory and change fileset accordingly
 #    #(name, hash, [partlist], insgesamte anz parts)
 #    def lookupDirFiles(self):
@@ -254,7 +289,20 @@ x = re.compile(r"\.(.+)_([0-9a-f]{32})")
 y = x.match(r".README_dc398ec03cf524964ecad3577deb4678")
 if y:
     print y.groups()
-#a = getFileVersion("")
-#print a.groups()
+
+def getFileSize(filePath):
+    fileSize = os.path.getsize(filePath)
+    return fileSize
+
+def getPartLenLast(filePath):
+    partLenLast = getFileSize(filePath) % (partSize)
+    return partLenLast
+
+def getPartCount(filePath):
+    partCount = getFileSize(filePath) // partSize
+    if getPartLenLast(filePath) > 0:
+        partCount = partCount + 1
+    return partCount
+
 #a = Application()
-#a.currentDirFiles()
+#print a.incompletFileDir()
