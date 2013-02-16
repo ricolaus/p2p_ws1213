@@ -166,7 +166,7 @@ class Network(object):
 				except socket.timeout:
 					if index == 10:
 						print "Daten wurden nicht gesendet die DRITTE %d" % portTCP
-						self.__portQueue.put(port)
+						self.__portQueue.put(portTCP)
 						self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, False))
 						#nachricht an appli das daten nicht gesendet wurden					
 						return
