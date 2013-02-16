@@ -183,13 +183,13 @@ class Application:
         
     
     def alreadySendingToReceiver(self, receiver):
-        if receiver in self.reqFiles.values():
+        if receiver in self.sendFiles.values():
                 return True
         else:
             return False
     
     def alreadyReceivingFromSender(self, sender):
-        if sender in self.sendFiles.values():
+        if sender in self.reqFiles.values():
                 return True
         else:
             return False
