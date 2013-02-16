@@ -98,7 +98,12 @@ class Application:
         if (fileName, fileHash) in self.fileSet and not self.alreadySendingToReceiver(senderUsername) and (fileName, fileHash, part) not in self.sendFiles and self.maxSendNumber > len(self.sendFiles):
             # TODO: problem if filename is a version-filename, so real-file-name and filetablename is different from 
             fsName = createFSname(fileName, self.fileSet[(fileName, fileHash)][3])
-            filepath = join(self.folderName, fsName)
+            #parts list is not empty -> parts 
+            if len(self.fileSet[(fileName, fileHash)][0]) != 0:
+                filepath = self.getAbsPartPath(fileName, fileHash, part)
+            #full file existing
+            else:
+                filepath = join(self.folderName, fsName)
             self.sendFiles[(fileName, fileHash, part)] = senderUsername
             reply = ("sendFile", filepath,  part, senderUsername, port)
             self.outQueue.put(reply, True)
@@ -205,6 +210,9 @@ class Application:
                     # dirList[y.group(1,2)] = ([], size, time, version )
         return dirList
     
+    def getAbsPartPath(self,fileName, fileHash, part):
+        absPath = join(self.folderNamer, r"." + fileName + r"_" + fileHash, "part" + part)
+        return absPath
 #    #lookup files in the shared directory and change fileset accordingly
 #    #(name, hash, [partlist], insgesamte anz parts)
 #    def lookupDirFiles(self):
