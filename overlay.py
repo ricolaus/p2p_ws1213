@@ -201,7 +201,7 @@ class Overlay:
                     self.processIncRefFL(message)
                 elif message[0] == "reqFile":
                     self.processIncReqFile(message)
-                elif message[0] == "filetrans":
+                elif message[0] == "fileTransSend":
                     self.putToO2A(message)
                 else:
                     print "Unknown message type: " + str(message[0]) 
@@ -489,12 +489,5 @@ class Overlay:
                 targetIP, targetPortUDP = self.splitIpAndPort(neighbor[1])
                 self.putToO2N((msgType, filePath, partNumber, targetIP, targetPortTCP))
                 break;        
-        
-        
-        
-        
-        
-        
-        
         
         

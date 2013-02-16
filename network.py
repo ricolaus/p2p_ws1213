@@ -120,12 +120,18 @@ class Network(object):
 					bitRateCounter = 1
 					while True:
 						start = datetime.now().microsecond
-						data = con.recv(self.__BUFFERSIZE_FILE)
+						try:
+							data = con.recv(self.__BUFFERSIZE_FILE)
+						except socket.error as msg:
+							# print msg
+							data = "exception thrown"
+						if data == "exception thrown":
+							continue 
 						if not data:
 							break
 						recvData = recvData + data
 						ende = datetime.now().microsecond
-						bitRate = bitRate + float(len(data)*8) / float((ende - start))
+						# bitRate = bitRate + float(len(data)*8) / float((ende - start))
 						bitRateCounter = bitRateCounter + 1
 					print "Transferate %0.3f Mbit/s" % (bitRate / bitRateCounter)
 					filoName = fileName + str(time.clock())
@@ -139,7 +145,7 @@ class Network(object):
 					self.__recvQueue.put(("fileTransRecv", fileName, fileHash, filePart, True))
 					break
 		except socket.error as msg:
-			print msg
+			print "recvTCP: " + str(msg)
 		finally: 
 			sockRecv.close()
 		#nachricht an appli das daten nicht gesendet wurden oder return
@@ -180,7 +186,7 @@ class Network(object):
 					sockSend.sendall(chunk)
 					self.__recvQueue.put(("fileTransSend", ip, filePath, False))
 		except socket.error as msg:
-			print msg
+			print "sendTCP: " + str(msg)
 		finally: 
 			sockSend.close()
 		#nachricht an appli das datei gesendet wurden oder return
