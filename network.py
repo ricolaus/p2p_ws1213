@@ -9,13 +9,12 @@ import os
 import ast
 
 class Network(object): 
-	def __init__(self, userFolder, ip, pSend, pRecv, startPort, countPort, recvQueue, sendQueue, mode): 
+	def __init__(self, userFolder, ip, pRecv, startPort, countPort, recvQueue, sendQueue, mode): 
 		self.__ip = ip
 		self.__userFolder = userFolder
 		self.__recvQueue = recvQueue
 		self.__sendQueue = sendQueue
 		self.__portRecv = pRecv
-		self.__portSend = pSend
 		self.__mode = mode
 		self.__portQueue = Queue.Queue()
 		for i in range(countPort): 
@@ -53,13 +52,13 @@ class Network(object):
 #			if eingabe == "ende":
 #				break
 		#outgoing ping (o2n) := ("ping", pingID, ttl, hops, ownUsername, ownIP, targetIP, targetPort)
-		self.__sendQueue.put(("ping", 159, 4, 0, "ownUsername", self.__ip, self.__portRecv, "127.0.0.1", self.__portSend))
+		#self.__sendQueue.put(("ping", 159, 4, 0, "ownUsername", self.__ip, self.__portRecv, "127.0.0.1", self.__portSend))
 		#outgoing pong (o2n) := ("pong", id, [(username1, ipP1), (username2, ip2), ...], targetIP, targetPort)
-		self.__sendQueue.put(("pong", 158, "List of (username_n, ip_n)", "127.0.0.1", self.__portSend))
+		#self.__sendQueue.put(("pong", 158, "List of (username_n, ip_n)", "127.0.0.1", self.__portSend))
 		#outgoing refFL (o2n) := ("refFL", fileList, ownUsername, targetIP, targetPort)
-		self.__sendQueue.put(("refFL", "fileList", "ownUsername", self.__ip, self.__portRecv, "127.0.0.1", self.__portSend))
+		#self.__sendQueue.put(("refFL", "fileList", "ownUsername", self.__ip, self.__portRecv, "127.0.0.1", self.__portSend))
 		#outgoing reqFile (o2n) := ("reqFile", fileName, fileHash, senderIP, targetIP, targetPort)
-		self.__sendQueue.put(("reqFile", "files/filetrans", "fileHash", self.__ip, self.__portRecv, "127.0.0.1", self.__portSend))
+		#self.__sendQueue.put(("reqFile", "files/filetrans", "fileHash", self.__ip, self.__portRecv, "127.0.0.1", self.__portSend))
 		#downgoing sendFile (o2n) := ("sendFile", filePath, targetIP, targetPortUDP, targetPortTCP)
 	#	self.__sendQueue.put(("sendFile", "filePath", "127.0.0.1", self.__portSend, 1337))
 		print "test1 ende"        

@@ -2,31 +2,29 @@ import os
 import pygtk
 import gtk
 
-class MyProgram:
+class Gui:
 
     def __init__(self):
 
-        # create a new window
+        # Create an Image object for a PNG file.
+        file_name = "800px-Png-logo.png"
+        pixbuf = gtk.gdk.pixbuf_new_from_file(file_name)
+        pixmap, mask = pixbuf.render_pixmap_and_mask()
+        image = gtk.Image()
+        image.set_from_pixmap(pixmap, mask)
 
-        app_window = gtk.Window(gtk.WINDOW_TOPLEVEL)
-        app_window.set_size_request(1920, 1080)
-        app_window.set_border_width(10)
-        app_window.set_title("MyProgram title")
-        app_window.connect("delete_event", lambda w,e: gtk.main_quit())
+        # Create a window.
+        window = gtk.Window()
+        window.set_title("PNG file")
+        window.connect("destroy", gtk.main_quit)
 
-        # Program goes here  ...
-
-        app_window.show()
-
-        return
-
-def main():
-    gtk.main()
-    return 0
+        # Show the PNG file in the window.
+        window.add(image)
+        window.show_all()
 
 if __name__ == "__main__":
-    MyProgram()
-    main()
+    Gui()
+    gtk.main()
 
 partSize = 1024
 
