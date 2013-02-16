@@ -30,6 +30,10 @@ class Overlay:
         self.ownPort = port
         # own identifier := ip:port
         self.ownIdentifier = str(ip) + ":" + str(port)
+        # bootstrapping IP
+        self.bootstrappingIP = bootstrappingIP
+        # bootstrapping port
+        self.bootstrappingPort = bootstrappingPort
         # list of known (max. 15) peers with structure: [(username, identifier)]
         self.knownPeers = []
         # list of all (~5) neighbors with structure: [(username, identifier, currency level)]
@@ -55,7 +59,7 @@ class Overlay:
         self.pingPongCurrencyThread = threading.Thread(target=self.checkPingPongCurrency)
         self.pingPongCurrencyThread.start()
         # bootstrapping
-        self.sendBootstrappingPing(bootstrappingIP, bootstrappingPort)
+        self.sendBootstrappingPing()
     
     #===========================================================================
     # terminate
@@ -71,14 +75,14 @@ class Overlay:
     #
     # Pings the bootstrapping node.
     #===========================================================================
-    def sendBootstrappingPing(self, bootstrappingIP, bootstrappingPort):
+    def sendBootstrappingPing(self):
         msgID = random.randint(0, 9999)
         identifier = str(self.ownIP) + ":" + str(self.ownPort)
 
         # add to sent pings
         self.sentPings.add(msgID)        
         # ping to bootstrapping node
-        self.putToO2N(("ping", msgID, 4, 0, self.ownUsername, self.ownIP, self.ownPort, bootstrappingIP, bootstrappingPort))
+        self.putToO2N(("ping", msgID, 4, 0, self.ownUsername, self.ownIP, self.ownPort, self.bootstrappingIP, self.bootstrappingPort))
         # add to ping dictionary
         self.pingDict[msgID] = (identifier, 10)
     
@@ -175,8 +179,6 @@ class Overlay:
             
         sample = random.sample(self.knownPeers, number) 
         for knownPeer in sample: 
-            # debugging:
-            # if not knownPeer[1] == "8.1:81000":
             self.addToNeighbours(knownPeer, 3)
 
 
@@ -188,8 +190,6 @@ class Overlay:
     def watchN2O(self):
         # print "Enter watchN2O()"
         while not self.__terminated:
-            message = ()
-          #  if not self.n2o.empty():
             message = self.getFromN2O()
             if message[0] == "ping":
                 self.processping(message)
@@ -321,6 +321,9 @@ class Overlay:
                 if neighbor[2] > 0:
                     self.neighbors.append((neighbor[0], neighbor[1], neighbor[2] - 1))
                 self.neighbors.remove(neighbor)
+                peer = neighbor[:2] 
+                if peer in self.knownPeers:
+                    self.knownPeers.remove(peer)
                 
     #===========================================================================
     # checkPingPongCurrency
@@ -383,8 +386,6 @@ class Overlay:
     def watchA2O(self):
         # print "Enter watchA2O()"
         while not self.__terminated:
-            message = ()
-         #   if not self.a2o.empty():
             message = self.getFromA2O()
             if message[0] == "refFL":
                 self.processOutRefFL(message)
@@ -433,6 +434,13 @@ class Overlay:
         # print "Enter processOutRefFL()"
         
         msgType, fileList = message
+        
+        if len(self.neighbors) < 5:
+            if len(self.knownPeers) > 0:
+                self.addToNeighbours(random.choice(self.knownPeers), 2)
+            else:
+                self.sendBootstrappingPing() 
+            
         
         for neighbor in self.neighbors:
             # split identifier
@@ -498,7 +506,7 @@ class Overlay:
     # Processes the up going 'file transfer sent' message to application layer.
     #===========================================================================
     def processUpFileTransSend (self, message):
-        print "Enter processDownSendFile()"
+        # print "Enter processDownSendFile()"
         
         msgType, targetIP, targetPortUDP, filePath, successflag = message
         
