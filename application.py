@@ -217,7 +217,7 @@ class Application:
         return dirList
     
     def getAbsPartPath(self,fileName, fileHash, part):
-        absPath = join(self.folderNamer, r"." + fileName + r"_" + fileHash, "part" + part)
+        absPath = join(self.folderName, r"." + fileName + r"_" + fileHash, "part" + part)
         return absPath
 #    #lookup files in the shared directory and change fileset accordingly
 #    #(name, hash, [partlist], insgesamte anz parts)
