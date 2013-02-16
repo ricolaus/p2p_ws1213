@@ -437,8 +437,27 @@ class Overlay:
         
         if len(self.neighbors) < 5:
             if len(self.knownPeers) > 0:
-                self.addToNeighbours(random.choice(self.knownPeers), 2)
+                
+                peerIsNeighbor = True
+                
+                while peerIsNeighbor:
+                    if len(self.knownPeers) > 0:
+                            peer = random.choice(self.knownPeers)
+                            self.knownPeers.remove(peer)
+                    else:
+                        break
+                    
+                    peerIsNeighbor = False
+                    
+                    for neighbor in self.neighbors:
+                        if neighbor[:2] == peer:
+                            peerIsNeighbor = True
+                            break
+                        
+                if not peerIsNeighbor:
+                    self.addToNeighbours(peer, 2)
             else:
+                #TODO: send ping to random neighbor
                 self.sendBootstrappingPing() 
             
         
