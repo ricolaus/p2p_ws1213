@@ -79,7 +79,7 @@ class Network(object):
 		try:
 			sockRecv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			sockRecv.bind(("", port)) 
-			sockRecv.settimeout(1)
+			sockRecv.settimeout(0.1)
 			sockRecv.listen(1)
 			filePath = self.__userFolder + "." + fileName + "_" + fileHash
 			index = 1
@@ -228,14 +228,16 @@ class Network(object):
 				print msg
 			finally: 
 				sockSend.close()
-		print "[SEND] %s nach %s:%s\t%s" % (self.__ip, str(ip), str(port), nachricht)
+		#print "[SEND] %s nach %s:%s\t%s" % (self.__ip, str(ip), str(port), nachricht)
 		return sendStat	
 	
 	def __sendUdp(self):
 		print "sendUdp start"
 		while True:
 			try:
-				sendTuple = self.__sendQueue.get(True, 1.0)
+				sendTuple = self.__sendQueue.get(True, 0.1)
+				
+				print "[SEND] %s %s %s" % (self.__userFolder, sendTuple[0], str(sendTuple[len(sendTuple) - 1]))
 				#print sendTuple
 				#Ping
 				#outgoing ping (o2n) := ("ping", pingID, ttl, hops, ownUsername, ownIP, ownPort, targetIP, targetPort)
@@ -268,13 +270,14 @@ class Network(object):
 					#TODO: IP und Port aendern
 					sendStat = self.__send(sendIP, sendPort, sendTuple)
 				#reqFile (request file)
-				#outgoing reqFile (o2n) := ("reqFile", fileName, fileHash, senderIP, senderPort, targetIP, targetPortTCP)
+				#outgoing reqFile (o2n) := ("reqFile", fileName, fileHash, filePart, senderIP, senderPort, targetIP, targetPortTCP)
 				elif sendTuple[0] == "reqFile":
-					sendIP = sendTuple[5]
-					sendPort = sendTuple[6]
-					sendTuple = sendTuple[:5]
+					sendIP = sendTuple[6]
+					sendPort = sendTuple[7]
+					sendTuple = sendTuple[:6]
 					fileName = sendTuple[1]
 					fileHash = sendTuple[2]
+					filePart = sendTuple[3]
 					listenPortTCP = self.__portQueue.get()
 					threadTCP = Thread(target=self.__recvTCP, args=(listenPortTCP, fileName, fileHash, 0))
 					self.__threadArray.append(threadTCP)
@@ -291,7 +294,7 @@ class Network(object):
 					partNumm = sendTuple[2]
 					partNumm = partNumm
 					filePath = sendTuple[1]
-					threadTCP = Thread(target=self.__sendTCP, args=(sendIP, sendPortUDP, sendPortTCP, filePath))
+					threadTCP = Thread(target=self.__sendTCP, args=(sendIP, sendPortUDP, sendPortTCP, int(filePath)))
 					self.__threadArray.append(threadTCP)
 					threadTCP.start()
 				#print sendStat
@@ -333,7 +336,7 @@ class Network(object):
 		try:
 			sockRecv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			sockRecv.bind((self.__ip, self.__portRecv))
-			sockRecv.settimeout(1.0)
+			sockRecv.settimeout(0.1)
 			while True:
 				try:
 					data, addr = sockRecv.recvfrom(self.__BUFFERSIZE_UDP)
@@ -383,8 +386,8 @@ class Network(object):
 		return t
 
 	def __recvUdp2(self, nachricht, addr, senderIP, senderPort):
-		print "[RECV] von %s:%s nach %s\t%s" % (addr[0], addr[1], senderIP, nachricht)
 		(stat, nachricht) = nachricht.split(";", 1)
+		print "[RECV] %s %s %s" % (self.__userFolder, stat, senderPort)
 		if not(nachricht == ""):
 			#Ping
 			#ping (n2n) := ("ping", pingID, ttl, hops, sendUsername, sendIP, sendPort)
@@ -418,10 +421,10 @@ class Network(object):
 			#reqFile (request file)
 			#reqFile (n2n) := ("reqFile", fileName, fileHash, senderIP, listenPortTCP)
 			elif stat == "reqFile":
-				(fileName, fileHash, senderIP, senderPort, senderPortTCP) = self.stringToTuple(nachricht)
+				(fileName, fileHash, filePart, senderIP, senderPort, senderPortTCP) = self.stringToTuple(nachricht)
 				senderPortTCP = int(senderPortTCP)
 				#incoming reqFile (n2o) := ("reqFile", fileName, fileHash, senderIP, senderPortTCP)
-				self.__recvQueue.put((stat, fileName, fileHash, senderIP, senderPort, senderPortTCP))
+				self.__recvQueue.put((stat, fileName, fileHash, filePart, senderIP, senderPort, senderPortTCP))
 				#downgoing sendFile (o2n) := ("sendFile", filePath, targetIP, targetPortTCP)
 				#self.__sendQueue.put(("sendFile", fileName, senderIP, senderPortTCP))
 				#nach oben geben!!!

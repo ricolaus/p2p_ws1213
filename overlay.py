@@ -189,22 +189,22 @@ class Overlay:
         # print "Enter watchN2O()"
         while not self.__terminated:
             message = ()
-            if not self.n2o.empty():
-                message = self.getFromN2O()
-                if message[0] == "ping":
-                    self.processping(message)
-                elif message[0] == "pong":
-                    self.processpong(message)
-                elif message[0] == "refFL":
-                    self.processIncRefFL(message)
-                elif message[0] == "reqFile":
-                    self.processIncReqFile(message)
-                elif message[0] == "fileTransSend":
-                    self.processUpFileTransSend(message)
-                elif message[0] == "fileTransRecv":
-                    self.putToO2A(message)
-                else:
-                    print "Unknown message type: " + str(message[0]) 
+          #  if not self.n2o.empty():
+            message = self.getFromN2O()
+            if message[0] == "ping":
+                self.processping(message)
+            elif message[0] == "pong":
+                self.processpong(message)
+            elif message[0] == "refFL":
+                self.processIncRefFL(message)
+            elif message[0] == "reqFile":
+                self.processIncReqFile(message)
+            elif message[0] == "fileTransSend":
+                self.processUpFileTransSend(message)
+            elif message[0] == "fileTransRecv":
+                self.putToO2A(message)
+            else:
+                print "Unknown message type: " + str(message[0]) 
             
     #===========================================================================
     # processping
@@ -384,16 +384,16 @@ class Overlay:
         # print "Enter watchA2O()"
         while not self.__terminated:
             message = ()
-            if not self.a2o.empty():
-                message = self.getFromA2O()
-                if message[0] == "refFL":
-                    self.processOutRefFL(message)
-                elif message[0] == "reqFile":
-                    self.processOutReqFile(message)
-                elif message[0] == "sendFile":
-                    self.processDownSendFile(message)
-                else:
-                    print "Unknown message type: " + str(message[0]) 
+         #   if not self.a2o.empty():
+            message = self.getFromA2O()
+            if message[0] == "refFL":
+                self.processOutRefFL(message)
+            elif message[0] == "reqFile":
+                self.processOutReqFile(message)
+            elif message[0] == "sendFile":
+                self.processDownSendFile(message)
+            else:
+                print "Unknown message type: " + str(message[0]) 
         
     #===========================================================================
     # processIncRefFL
@@ -446,13 +446,13 @@ class Overlay:
     def processIncReqFile(self, message):
         # print "Enter processIncReqFile()"
         
-        msgType, fileName, fileHash, senderIP, senderPortUDP, senderPortTCP = message
+        msgType, fileName, fileHash, filePart, senderIP, senderPortUDP, senderPortTCP = message
         
         senderIdentifier = str(senderIP) + ":" + str(senderPortUDP)
         
         for neighbor in self.neighbors:
             if(neighbor[1] == senderIdentifier):
-                self.putToO2A((msgType, fileName, fileHash, neighbor[0], senderPortTCP))
+                self.putToO2A((msgType, fileName, fileHash, filePart, neighbor[0], senderPortTCP))
                 break;
 
     #===========================================================================
@@ -463,14 +463,14 @@ class Overlay:
     def processOutReqFile(self, message):
         # print "Enter processOutReqFile()"
         
-        msgType, fileName, fileHash, targetUsername = message
+        msgType, fileName, fileHash, filePart, targetUsername = message
         
         for neighbor in self.neighbors:
             if(neighbor[0] == targetUsername):
                 # split identifier
                 targetIP, targetPort = self.splitIpAndPort(neighbor[1])
                 # send reqFile to network
-                self.putToO2N((msgType, fileName, fileHash, self.ownIP, self.ownPort, targetIP, int(targetPort)))
+                self.putToO2N((msgType, fileName, fileHash, filePart, self.ownIP, self.ownPort, targetIP, int(targetPort)))
                 break
 
     #===========================================================================
