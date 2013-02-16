@@ -138,7 +138,7 @@ class Network(object):
 					filoName = "part" + str(filePart)
 					if not os.path.isdir(filePath):
 						os.mkdir(filePath)
-					print "%s %s %s" % (filePath , filoName, filePart)
+					#print "%s %s %s" % (filePath , filoName, filePart)
 					fileRecv = open(filePath  + "/" + filoName,"wb")
 					fileRecv.write(recvData)
 					fileRecv.close()
@@ -154,7 +154,7 @@ class Network(object):
 
 	def __sendTCP(self, ip, portUDP, portTCP, filePath):
 		sockSend = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-		print ip + str(portTCP)
+		#print ip + str(portTCP)
 		sockSend.connect((ip, int(portTCP)))
 		try: 
 			nachricht = "LETSGOON;" +  filePath
@@ -237,7 +237,7 @@ class Network(object):
 		while True:
 			try:
 				sendTuple = self.__sendQueue.get(True, 1.0)
-				print sendTuple
+				#print sendTuple
 				#Ping
 				#outgoing ping (o2n) := ("ping", pingID, ttl, hops, ownUsername, ownIP, ownPort, targetIP, targetPort)
 				#TODO: ownPort fehlt
@@ -295,7 +295,7 @@ class Network(object):
 					threadTCP = Thread(target=self.__sendTCP, args=(sendIP, sendPortUDP, sendPortTCP, filePath))
 					self.__threadArray.append(threadTCP)
 					threadTCP.start()
-				print sendStat
+				#print sendStat
 	#			if sendCase == "message":
 	#				sendStat = self.__send(sendIP, sendPort, "OVERSTAT", nachricht)
 	#				if sendStat == False:

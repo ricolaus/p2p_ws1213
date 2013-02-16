@@ -487,7 +487,7 @@ class Overlay:
             if(neighbor[0] == targetUsername):
                 # split identifier
                 targetIP, targetPortUDP = self.splitIpAndPort(neighbor[1])
-                self.putToO2N((msgType, filePath, partNumber, targetIP, targetPortTCP))
+                self.putToO2N((msgType, filePath, partNumber, targetIP, targetPortUDP, targetPortTCP))
                 break;        
         
     #===========================================================================

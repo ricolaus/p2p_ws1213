@@ -1,4 +1,32 @@
 import os
+import pygtk
+import gtk
+
+class MyProgram:
+
+    def __init__(self):
+
+        # create a new window
+
+        app_window = gtk.Window(gtk.WINDOW_TOPLEVEL)
+        app_window.set_size_request(1920, 1080)
+        app_window.set_border_width(10)
+        app_window.set_title("MyProgram title")
+        app_window.connect("delete_event", lambda w,e: gtk.main_quit())
+
+        # Program goes here  ...
+
+        app_window.show()
+
+        return
+
+def main():
+    gtk.main()
+    return 0
+
+if __name__ == "__main__":
+    MyProgram()
+    main()
 
 partSize = 1024
 
@@ -59,9 +87,9 @@ def writeFilePart(partNumb, file):
     return str
 
 
-writeFilePart (4, "files/filetrans")
-print readFilePart(4, "files/filetrans")
-print getFileSize("files/filetrans")
-print getPartLenLast("files/filetrans")
-print getPartCount("files/filetrans")
+#writeFilePart (4, "files/filetrans")
+#print readFilePart(4, "files/filetrans")
+#print getFileSize("files/filetrans")
+#print getPartLenLast("files/filetrans")
+#print getPartCount("files/filetrans")
 
