@@ -21,11 +21,9 @@ class Network(object):
 		t0 = Thread(target=self.__recvUdp, args=())
 		t0.start()
 		
-	def tupleToString(self, tup):
-		string = tup[0]
-		for i in range(1, len(tup)):
-			string = string + ";" + str(tup[i])
-		return string
+	def stringToTuple(self, string):
+		t = tuple(string.split(';'))
+		return t
 
 	def __calcHash(self, text):
 		hatshi = hashlib.md5(text).hexdigest()[:self.__HASHLENGTH]
@@ -86,17 +84,19 @@ class Network(object):
 		print "[RECV] von %s:%s nach %s\t%s" % (addr[0], addr[1], senderIP, nachricht)
 		(stat, nachricht) = nachricht.split(";", 1)
 		if not(nachricht == ""):
-			#Ping
-			#ping (n2n) := ("ping", pingID, ttl, hops, sendUsername, sendIP, sendPort)
-			#TODO: sendPort fehlt noch
-			if stat == "ping":
-				(pingID, ttl, hops, senderUsername, senderIP, senderPort) = ast.literal_eval(nachricht)
-				pingID = int(pingID)
-				ttl = int(ttl)
-				hops = int(hops)
-				#incoming ping (n2o) := ("ping", pingID, ttl, hops, senderUsername, senderIP, senderPort)
-				#TODO: senderPort fehlt
-				self.__recvQueue.put((stat, pingID, ttl, hops, senderUsername, senderIP, senderPort))
+			# receiving neighbor list
+			# neighbors := ("neighbors", sendUsername, neighborList)
+			if stat == "neighbors":
+				(senderUsername, neighborList) = self.stringToTuple(nachricht)
+				neighborList = ast.literal_eval(neighborList)
+				self.__recvQueue.put((stat, senderUsername, neighborList))
+			# receiving file count
+			# files := ("files", sendUsername, fileCount)
+			elif stat == "files":
+				(senderUsername, fileCount) = self.stringToTuple(nachricht)
+				self.__recvQueue.put((stat, senderUsername, fileCount))
+			else:
+				print "Message of unknown type arrived: " + stat
 		return True
 
 eingabe = ""

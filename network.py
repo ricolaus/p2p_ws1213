@@ -10,11 +10,12 @@ import ast
 import help_functions
 
 class Network(object): 
-	def __init__(self, userFolder, ip, pRecv, startPort, countPort, recvQueue, sendQueue, mode): 
+	def __init__(self, userFolder, ip, pRecv, startPort, countPort, recvQueue, sendQueue, watcherQueue, mode): 
 		self.__ip = ip
 		self.__userFolder = userFolder
 		self.__recvQueue = recvQueue
 		self.__sendQueue = sendQueue
+		self.__watcherQ = watcherQueue
 		self.__portRecv = pRecv
 		self.__mode = mode
 		self.__portQueue = Queue.Queue()
@@ -31,6 +32,8 @@ class Network(object):
 		t0.start()
 		t1 = Thread(target=self.__sendUdp, args=())
 		t1.start()
+		sendWatcherThread = Thread(target=self.__sendUdp2Watcher(), args=())
+		sendWatcherThread.start()
 #		if self.__mode == 1:
 #			t2 = Thread(target=self.__test1, args=())
 #			t2.start()
@@ -334,6 +337,32 @@ class Network(object):
 				if eingabe == "ende":
 					break
 		print "sendUdp ende"
+		
+	def __sendUdp2Watcher(self):
+		print "sendUdp2Watcher start"
+		while True:
+			try:
+				sendTuple = self.__watcherQ.get(True)
+				
+				print "[SEND] %s %s %s" % (self.__userFolder, sendTuple[0], str(sendTuple[len(sendTuple) - 1]))
+				# sending neighbor list
+				# neighbors (o2n) := ("neighbors", sendUsername, neighborList)
+				if sendTuple[0] == "neighbors":
+					sendIP = "127.0.0.1"
+					sendPort = 1337
+					sendTuple = self.tupleToString(sendTuple)
+					self.__send(sendIP, sendPort, sendTuple)
+				# sending file count
+				# files (a2n) := ("files", sendUsername, fileCount)
+				elif sendTuple[0] == "files":
+					sendIP = "127.0.0.1"
+					sendPort = 1337
+					sendTuple = self.tupleToString(sendTuple)
+					self.__send(sendIP, sendPort, sendTuple)
+			except Queue.Empty:
+				if eingabe == "ende":
+					break
+		print "sendUdp2Watcher ende"
 		
 	def tupleToString(self, tup):
 		string = tup[0]

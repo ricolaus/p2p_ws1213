@@ -12,7 +12,7 @@ class Overlay:
     # Sends the first (bootstrapping) 'ping' message.
     # Starts all threads.
     #===========================================================================
-    def __init__(self, username, ip, port, bootstrappingIP, bootstrappingPort, q1, q2, q3, q4):
+    def __init__(self, username, ip, port, bootstrappingIP, bootstrappingPort, q1, q2, q3, q4, q5):
         print "Enter constructor of overlay"
         # incoming queue from network layer
         self.n2o = q1
@@ -22,6 +22,8 @@ class Overlay:
         self.a2o = q3
         # outgoing queue to application layer
         self.o2a = q4
+        # outgoing Queue to watcher
+        self.watcherQ = q5
         # own username
         self.ownUsername = username
         # own ip
@@ -30,14 +32,10 @@ class Overlay:
         self.ownPort = port
         # own identifier := ip:port
         self.ownIdentifier = str(ip) + ":" + str(port)
-        # bootstrapping IP
-        self.bootstrappingIP = bootstrappingIP
-        # bootstrapping port
-        self.bootstrappingPort = bootstrappingPort
         # list of known (max. 15) peers with structure: [(username, identifier)]
         self.knownPeers = []
-        # list of all (~5) neighbors with structure: [(username, identifier, currency level)]
-        self.neighbors = []
+        # dictionary of all (~5) neighbors with structure: [identifier: (username, currency level)]
+        self.neighbors = {}
         # dictionary of received pings with structure: {msgID: (identifier, currency level)}
         self.pingDict = {}
         # message ID's of sent pings
@@ -59,7 +57,11 @@ class Overlay:
         self.pingPongCurrencyThread = threading.Thread(target=self.checkPingPongCurrency)
         self.pingPongCurrencyThread.start()
         # bootstrapping
-        self.sendBootstrappingPing()
+        self.sendPing(bootstrappingIP, bootstrappingPort)
+        # lock for notifyWatcher
+#        self.notifyLock = threading.Lock()
+        # lock for neighbors
+#        self.neighborsLock = threading.Lock() 
     
     #===========================================================================
     # terminate
@@ -75,14 +77,14 @@ class Overlay:
     #
     # Pings the bootstrapping node.
     #===========================================================================
-    def sendBootstrappingPing(self):
+    def sendPing(self, ip, port):
         msgID = random.randint(0, 9999)
         identifier = str(self.ownIP) + ":" + str(self.ownPort)
 
         # add to sent pings
         self.sentPings.add(msgID)        
         # ping to bootstrapping node
-        self.putToO2N(("ping", msgID, 4, 0, self.ownUsername, self.ownIP, self.ownPort, self.bootstrappingIP, self.bootstrappingPort))
+        self.putToO2N(("ping", msgID, 4, 0, self.ownUsername, self.ownIP, self.ownPort, ip, int(port)))
         # add to ping dictionary
         self.pingDict[msgID] = (identifier, 10)
     
@@ -116,6 +118,35 @@ class Overlay:
         # print "Enter putToO2N()"
         if self.o2n:
             self.o2n.put(message, True)
+     
+    def putTowatcherQ(self, message):
+        # print "Enter putTowatcherQ()"
+        if self.watcherQ:
+            self.watcherQ.put(message, True)
+            
+    #===========================================================================
+    # notifyWatcher
+    #
+    # Puts a message into the outgoing queue to the watcher.
+    #===========================================================================
+    def notifyWatcher(self):
+        
+#        self.notifyLock.acquire()
+        
+        # print "Enter notifyWatcher()"
+        neighborList = []
+        
+#        self.neighborsLock.acquire()
+        for identifier in self.neighbors.keys():
+            # append username and currency of the neighbor
+            neighborList.append(self.neighbors[identifier])
+#        self.neighborsLock.release()
+        
+        message = ("neighbors", self.ownUsername, neighborList)
+        
+#        self.notifyLock.release()
+        
+        self.putTowatcherQ(message)
             
     #===========================================================================
     # getFromA2O
@@ -160,9 +191,12 @@ class Overlay:
     # True, if the peer was added
     # False, else
     #===========================================================================
-    def addToNeighbours(self, peer, currency):
-        if (not peer == (self.ownUsername, self.ownIdentifier)) and self.neighbors.count(peer) == 0 and len(self.neighbors) < 6:
-            self.neighbors.append((peer[0], peer[1], currency))
+    def addToNeighbours(self, username, identifier, currency):
+        # peer := (username, identifier)
+        if not identifier == self.ownIdentifier and not self.neighbors.has_key(identifier) and len(self.neighbors) < 6:
+#            self.neighborsLock.acquire()
+            self.neighbors[identifier] = (username, currency)
+#            self.neighborsLock.release()
             return True
         else:
             return False
@@ -173,14 +207,21 @@ class Overlay:
     # Trys to add max. 5 of the known peers to the neighbor list.
     #===========================================================================
     def refreshNeighbours(self):
+        neighborAdded = False
         number = 5
         if len(self.knownPeers) < 5:
             number = len(self.knownPeers)
-            
+        
         sample = random.sample(self.knownPeers, number) 
-        for knownPeer in sample: 
-            self.addToNeighbours(knownPeer, 3)
-
+        for knownPeer in sample:
+            # try to add to neighbors
+            if self.addToNeighbours(knownPeer[0], knownPeer[1], 3):
+                neighborAdded = True
+            # remove from known peers
+            self.knownPeers.remove(knownPeer)
+                
+        if neighborAdded:
+            self.notifyWatcher() 
 
     #===========================================================================
     # watchN2O
@@ -219,29 +260,29 @@ class Overlay:
         
         # print "Enter processping()"
         
-        msgType, msgID, ttl, hops, username, ip, port = message
+        msgType, msgID, ttl, hops, username, senderIP, senderPort = message
         
-        identifier = str(ip) + ":" + str(port)
+        senderIdentifier = str(senderIP) + ":" + str(senderPort)
         
         # add to/refresh knownPeers list
-        self.addToKnownPeers((username, identifier))
+        self.addToKnownPeers((username, senderIdentifier))
         
         if (ttl > 1) and (msgID not in self.pingDict) and (msgID not in self.sentPings):
             # add to ping dictionary
-            self.pingDict[msgID] = (identifier, 2^(ttl-2)+1)
+            self.pingDict[msgID] = (senderIdentifier, 2^(ttl-2)+1)
             # if ttl is to high
             if ttl + hops > 7:
                 ttl = 7 - hops
             # send ping to each neighbor
-            for neighbor in self.neighbors: 
-                if not neighbor[0] == username:
+            for identifier in self.neighbors.keys(): 
+                if not identifier == senderIdentifier:
                     # split identifier
-                    targetIP, targetPort = self.splitIpAndPort(neighbor[1])
+                    targetIP, targetPort = self.splitIpAndPort(identifier)
                     # send ping to neighbor
                     self.putToO2N((msgType, msgID, ttl-1, hops+1, self.ownUsername, self.ownIP, self.ownPort, targetIP, int(targetPort)))
         elif (ttl == 1) and (msgID not in self.pingDict) and (msgID not in self.sentPings):
             # add to ping dictionary
-            self.pingDict[msgID] = (identifier, 0)
+            self.pingDict[msgID] = (senderIdentifier, 0)
             # split identifier
             targetIP, targetPort = self.splitIpAndPort(self.pingDict[msgID][0])
             # send pong to sender
@@ -315,15 +356,25 @@ class Overlay:
         while not self.__terminated:
             
             time.sleep(2)
+            neighborDropped = False
             
-            tmp = self.neighbors
-            for neighbor in tmp:
-                if neighbor[2] > 0:
-                    self.neighbors.append((neighbor[0], neighbor[1], neighbor[2] - 1))
-                self.neighbors.remove(neighbor)
-                peer = neighbor[:2] 
-                if peer in self.knownPeers:
-                    self.knownPeers.remove(peer)
+#            self.neighborsLock.acquire()
+            for identifier in self.neighbors.keys():
+                if self.neighbors[identifier][1] > 0:
+                    self.neighbors[identifier] = (self.neighbors[identifier][0], self.neighbors[identifier][1] - 1)
+                else:
+                    self.neighbors.pop(identifier)
+                    neighborDropped = True
+                
+#                print self.neighbors
+#                peer = (self.neighbors[identifier][0], identifier) 
+#                if peer in self.knownPeers:
+#                    self.knownPeers.remove(peer)
+#                print self.knownPeers
+#            self.neighborsLock.release()
+            
+            if neighborDropped:
+                self.notifyWatcher()
                 
     #===========================================================================
     # checkPingPongCurrency
@@ -412,17 +463,20 @@ class Overlay:
         
         existing = False
         
-        for neighbor in self.neighbors:
-            if(neighbor[0] == senderUsername and neighbor[1] == senderIdentifier):
+#       self.neighborsLock.acquire()
+        for identifier in self.neighbors.keys():
+            if(self.neighbors[identifier][0] == senderUsername and identifier == senderIdentifier):
                 self.putToO2A((msgType, fileList, senderUsername, False))
-                self.neighbors.append((senderUsername, senderIdentifier, 5))
-                self.neighbors.remove(neighbor)
+                self.neighbors[senderIdentifier] = (senderUsername, 5)
+#                print self.neighbors
                 existing = True
                 break
+#        self.neighborsLock.release()
         
         if not existing:
-            self.addToNeighbours((senderUsername, senderIdentifier), 5)
-            self.putToO2A((msgType, fileList, senderUsername, True))
+            if self.addToNeighbours(senderUsername, senderIdentifier, 5):
+                self.notifyWatcher()
+                self.putToO2A((msgType, fileList, senderUsername, True))
 
     #===========================================================================
     # processOutRefFL
@@ -439,6 +493,7 @@ class Overlay:
             if len(self.knownPeers) > 0:
                 
                 peerIsNeighbor = True
+                peer = ()
                 
                 while peerIsNeighbor:
                     if len(self.knownPeers) > 0:
@@ -447,25 +502,25 @@ class Overlay:
                     else:
                         break
                     
-                    peerIsNeighbor = False
+                    peerIsNeighbor = self.neighbors.has_key(peer[1])
                     
-                    for neighbor in self.neighbors:
-                        if neighbor[:2] == peer:
-                            peerIsNeighbor = True
-                            break
-                        
                 if not peerIsNeighbor:
-                    self.addToNeighbours(peer, 2)
-            else:
-                #TODO: send ping to random neighbor
-                self.sendBootstrappingPing() 
+                    self.addToNeighbours(peer[0], peer[1], 2)
+                        
+            elif len(self.neighbors) > 0:
+                # send ping to random neighbor
+                rndIdentifier = random.choice(self.neighbors.keys())
+                ip, port = self.splitIpAndPort(rndIdentifier)
+                self.sendPing(ip, port) 
             
         
-        for neighbor in self.neighbors:
+        for identifier in self.neighbors.keys():
             # split identifier
-            targetIP, targetPort = self.splitIpAndPort(neighbor[1])
+            targetIP, targetPort = self.splitIpAndPort(identifier)
             # send refFL to network
             self.putToO2N((msgType, fileList, self.ownUsername, self.ownIP, self.ownPort, targetIP, int(targetPort)))
+            # send periodically messages to the watcher
+            self.notifyWatcher()
             
     #===========================================================================
     # processIncReqFile
@@ -479,10 +534,8 @@ class Overlay:
         
         senderIdentifier = str(senderIP) + ":" + str(senderPortUDP)
         
-        for neighbor in self.neighbors:
-            if(neighbor[1] == senderIdentifier):
-                self.putToO2A((msgType, fileName, fileHash, filePart, neighbor[0], senderPortTCP))
-                break;
+        self.putToO2A((msgType, fileName, fileHash, filePart, self.neighbors[senderIdentifier][0], senderPortTCP))
+
 
     #===========================================================================
     # processOutReqFile
@@ -494,10 +547,10 @@ class Overlay:
         
         msgType, fileName, fileHash, filePart, targetUsername = message
         
-        for neighbor in self.neighbors:
-            if(neighbor[0] == targetUsername):
+        for identifier in self.neighbors.keys():
+            if(self.neighbors[identifier][0] == targetUsername):
                 # split identifier
-                targetIP, targetPort = self.splitIpAndPort(neighbor[1])
+                targetIP, targetPort = self.splitIpAndPort(identifier)
                 # send reqFile to network
                 self.putToO2N((msgType, fileName, fileHash, filePart, self.ownIP, self.ownPort, targetIP, int(targetPort)))
                 break
@@ -512,10 +565,10 @@ class Overlay:
         
         msgType, filePath, partNumber, targetUsername, targetPortTCP = message
         
-        for neighbor in self.neighbors:
-            if(neighbor[0] == targetUsername):
+        for identifier in self.neighbors.keys:
+            if(self.neighbors[identifier][0] == targetUsername):
                 # split identifier
-                targetIP, targetPortUDP = self.splitIpAndPort(neighbor[1])
+                targetIP, targetPortUDP = self.splitIpAndPort(identifier)
                 self.putToO2N((msgType, filePath, partNumber, targetIP, targetPortUDP, targetPortTCP))
                 break;        
         
@@ -531,10 +584,7 @@ class Overlay:
         
         targetIdentifier = str(targetIP) + ":" + str(targetPortUDP)
         
-        for neighbor in self.neighbors:
-            if(neighbor[1] == targetIdentifier):
-                self.putToO2A((msgType, neighbor[0], filePath, successflag))
-                break; 
+        self.putToO2A((msgType, self.neighbors[targetIdentifier], filePath, successflag))
         
         
         
