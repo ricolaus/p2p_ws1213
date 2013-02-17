@@ -32,7 +32,7 @@ class Network(object):
 		t0.start()
 		t1 = Thread(target=self.__sendUdp, args=())
 		t1.start()
-		sendWatcherThread = Thread(target=self.__sendUdp2Watcher(), args=())
+		sendWatcherThread = Thread(target=self.__sendUdp2Watcher, args=())
 		sendWatcherThread.start()
 #		if self.__mode == 1:
 #			t2 = Thread(target=self.__test1, args=())
@@ -179,26 +179,21 @@ class Network(object):
 						break
 			if antwort == "LETSGOON":
 				if filePart > 0:
-					print "Parts koennen noch nicht uebertragen werden. Mach ich heute abend noch fertig"
-#					data = ""
-#					data = help_functions.readFilePart(filePart, filePath)
-#					chunkSize = self.__BUFFERSIZE_FILE
-#					if chunkSize >= len(data):
-#						sockSend.sendall(data)
-#						self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, True))
-#					else:
-#						index = 0
-#						while True:
-#							chunkFrom = index*chunkSize
-#							chunkTo = chunkFrom + chunkSize + 1
-#							if chunkTo > len(data):
-#								chunkTo = len(data)
-#							chunk = data[chunkFrom:chunkTo]
-#							index = index + 1
-#							if not chunk:
-#								break  # EOF
-#							sockSend.sendall(chunk)
-#						self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, True))
+					chunkSize = self.__BUFFERSIZE_FILE
+					sendData = help_functions.readFilePart(filePart, filePath)
+					if chunkSize >= len(str(sendData)):
+						sockSend.sendall(sendData)
+						self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, True))
+					else:
+						print "Partsize groesser als BufferSize"
+						chunkCount = len(str(sendData)) // chunkSize
+						chunkLenLast = len(str(sendData)) % (chunkSize)
+						if chunkLenLast > 0:
+							chunkCount = chunkCount + 1
+							
+						for i in range(chunkCount):
+							sockSend.sendall(sendData[i*chunkSize:(i+1)*chunkSize])
+						self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, True))
 				elif filePart == 0:
 					sendFile = open(filePath, 'rb')
 					while True:
@@ -342,7 +337,7 @@ class Network(object):
 		print "sendUdp2Watcher start"
 		while True:
 			try:
-				sendTuple = self.__watcherQ.get(True)
+				sendTuple = self.__watcherQ.get(True, 1.0)
 				
 				print "[SEND] %s %s %s" % (self.__userFolder, sendTuple[0], str(sendTuple[len(sendTuple) - 1]))
 				# sending neighbor list

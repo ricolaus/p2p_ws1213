@@ -1,4 +1,4 @@
-from __future__ import print_function
+#from __future__ import print_function
 import Queue
 import time
 import sys
@@ -10,7 +10,7 @@ from application import Application
 from network import Network
 
 # nice, cheap and dirty hack for a thread safe print function
-print = lambda x: sys.stdout.write("%s\n" % x)
+#print = lambda x: sys.stdout.write("%s\n" % x)
 
 
 n2o = Queue.Queue()
@@ -28,11 +28,12 @@ bootstrapPort = 13370
 TCPPortStart = 60000
 TCPPortCount = 10
 
+
 # initialize and start overlay layer
-#overlay = Overlay(userName, ownIP, ownPort, bootstrapIP, bootstrapPort, n2o, o2n, a2o, o2a, watcherQ)
-#application = Application(userFolder, o2a, a2o)
-#network1 = Network(userFolder, ownIP, ownPort, TCPPortStart, TCPPortCount, n2o, o2n, watcherQ, 2)
-#network1.run()
+overlay = Overlay(userName, ownIP, ownPort, bootstrapIP, bootstrapPort, n2o, o2n, a2o, o2a, watcherQ)
+application = Application(userFolder, o2a, a2o)
+network1 = Network(userFolder, ownIP, ownPort, TCPPortStart, TCPPortCount, n2o, o2n, watcherQ, 2)
+network1.run()
 
 
 time.sleep(2.5)
