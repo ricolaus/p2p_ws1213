@@ -7,6 +7,7 @@ import hashlib
 from datetime import datetime
 import os
 import ast
+import help_functions
 
 class Network(object): 
 	def __init__(self, userFolder, ip, pRecv, startPort, countPort, recvQueue, sendQueue, mode): 
@@ -151,7 +152,7 @@ class Network(object):
 			sockRecv.close()
 		#nachricht an appli das daten nicht gesendet wurden oder return
 
-	def __sendTCP(self, ip, portUDP, portTCP, filePath):
+	def __sendTCP(self, ip, portUDP, portTCP, filePath, filePart):
 		sockSend = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
 		#print ip + str(portTCP)
 		sockSend.connect((ip, int(portTCP)))
@@ -174,18 +175,35 @@ class Network(object):
 					if eingabe == "ende":
 						break
 			if antwort == "LETSGOON":
-				try:
+				if filePart > 0:
+					print "Parts koennen noch nicht uebertragen werden. Mach ich heute abend noch fertig"
+#					data = ""
+#					data = help_functions.readFilePart(filePart, filePath)
+#					chunkSize = self.__BUFFERSIZE_FILE
+#					if chunkSize >= len(data):
+#						sockSend.sendall(data)
+#						self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, True))
+#					else:
+#						index = 0
+#						while True:
+#							chunkFrom = index*chunkSize
+#							chunkTo = chunkFrom + chunkSize + 1
+#							if chunkTo > len(data):
+#								chunkTo = len(data)
+#							chunk = data[chunkFrom:chunkTo]
+#							index = index + 1
+#							if not chunk:
+#								break  # EOF
+#							sockSend.sendall(chunk)
+#						self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, True))
+				elif filePart == 0:
 					sendFile = open(filePath, 'rb')
-				except:
-					etype, evalue, etb = sys.exc_info()
-					evalue = etype("Cannot open file: %s" % evalue)
-					raise etype, evalue, etb
-				while True:
-					chunk = sendFile.read(self.__BUFFERSIZE_FILE)
-					if not chunk:
-						break  # EOF
-					sockSend.sendall(chunk)
-				self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, True))
+					while True:
+						chunk = sendFile.read(self.__BUFFERSIZE_FILE)
+						if not chunk:
+							break  # EOF
+						sockSend.sendall(chunk)
+					self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, True))
 		except socket.error as msg:
 			print "sendTCP: " + str(msg)
 		finally: 
@@ -292,9 +310,8 @@ class Network(object):
 					sendPortUDP = sendTuple[4]
 					sendPortTCP = sendTuple[5]
 					partNumm = sendTuple[2]
-					partNumm = partNumm
 					filePath = sendTuple[1]
-					threadTCP = Thread(target=self.__sendTCP, args=(sendIP, sendPortUDP, sendPortTCP, filePath))
+					threadTCP = Thread(target=self.__sendTCP, args=(sendIP, sendPortUDP, sendPortTCP, filePath, partNumm))
 					self.__threadArray.append(threadTCP)
 					threadTCP.start()
 				#print sendStat
