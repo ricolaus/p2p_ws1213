@@ -25,25 +25,17 @@ def addNewInformation():
                   
     # neighbor message arrived
     if message[0] == "neighbors":
-        userName, neighbors = message[1:]
+        userName, neighbors, fileCount = message[1:]
         # add to currency dictionary
         peers[userName] = 5
         
         if userName in networkStructure.keys():
-            fileCount = networkStructure[userName][1]
+            if fileCount == '-1':
+                fileCount = networkStructure[userName][1]
             color =  networkStructure[userName][2]
             networkStructure[userName] = (neighbors, fileCount, color)
         else:
-            networkStructure[userName] = (neighbors, -1, color)
-    # file count message arrived
-    elif message[0] == "files":
-        userName, fileCount = message[1:]
-        if userName in networkStructure.keys():
-            neighbors = networkStructure[userName][0]
-            color =  networkStructure[userName][2]
             networkStructure[userName] = (neighbors, fileCount, color)
-        else:
-            networkStructure[userName] = ([], -1, color)
     else:
         print "Message with unknown type arrived: " + message[0]
 

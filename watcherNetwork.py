@@ -85,16 +85,11 @@ class Network(object):
 		(stat, nachricht) = nachricht.split(";", 1)
 		if not(nachricht == ""):
 			# receiving neighbor list
-			# neighbors := ("neighbors", sendUsername, neighborList)
+			# neighbors := ("neighbors", sendUsername, neighborList, fileCount)
 			if stat == "neighbors":
-				(senderUsername, neighborList) = self.stringToTuple(nachricht)
+				(senderUsername, neighborList, fileCount) = self.stringToTuple(nachricht)
 				neighborList = ast.literal_eval(neighborList)
-				self.__recvQueue.put((stat, senderUsername, neighborList))
-			# receiving file count
-			# files := ("files", sendUsername, fileCount)
-			elif stat == "files":
-				(senderUsername, fileCount) = self.stringToTuple(nachricht)
-				self.__recvQueue.put((stat, senderUsername, fileCount))
+				self.__recvQueue.put((stat, senderUsername, neighborList, fileCount))
 			else:
 				print "Message of unknown type arrived: " + stat
 		return True

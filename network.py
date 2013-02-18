@@ -343,15 +343,8 @@ class Network(object):
 				
 				print "[SEND] %s %s %s" % (self.__userFolder, sendTuple[0], str(sendTuple[len(sendTuple) - 1]))
 				# sending neighbor list
-				# neighbors (o2n) := ("neighbors", sendUsername, neighborList)
+				# neighbors (o2n) := ("neighbors", sendUsername, neighborList, fileCount)
 				if sendTuple[0] == "neighbors":
-					sendIP = "127.0.0.1"
-					sendPort = 1337
-					sendTuple = self.tupleToString(sendTuple)
-					self.__send(sendIP, sendPort, sendTuple)
-				# sending file count
-				# files (a2n) := ("files", sendUsername, fileCount)
-				elif sendTuple[0] == "files":
 					sendIP = "127.0.0.1"
 					sendPort = 1337
 					sendTuple = self.tupleToString(sendTuple)

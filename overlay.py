@@ -122,13 +122,18 @@ class Overlay:
         # print "Enter putTowatcherQ()"
         if self.watcherQ:
             self.watcherQ.put(message, True)
-            
+    
+    def calcFileCount(self, fileList):
+        fileCount = len(fileList)
+        
+        return fileCount
+    
     #===========================================================================
     # notifyWatcher
     #
     # Puts a message into the outgoing queue to the watcher.
     #===========================================================================
-    def notifyWatcher(self):
+    def notifyWatcher(self, fileCount):
         
         # print "Enter notifyWatcher()"
         neighborList = []
@@ -136,7 +141,7 @@ class Overlay:
         for identifier in self.neighbors.keys():
             # append username and currency of the neighbor
             neighborList.append(self.neighbors[identifier])
-        message = ("neighbors", self.ownUsername, neighborList)
+        message = ("neighbors", self.ownUsername, neighborList, fileCount)
         
         self.putTowatcherQ(message)
             
@@ -211,7 +216,7 @@ class Overlay:
             self.knownPeers.remove(knownPeer)
         
         if neighborAdded:
-            self.notifyWatcher() 
+            self.notifyWatcher(-1) 
 
     #===========================================================================
     # watchN2O
@@ -358,7 +363,7 @@ class Overlay:
                     neighborDropped = True
             
             if neighborDropped:
-                self.notifyWatcher()
+                self.notifyWatcher(-1)
                 
     #===========================================================================
     # checkPingPongCurrency
@@ -455,7 +460,7 @@ class Overlay:
         
         if not existing:
             if self.addToNeighbours(senderUsername, senderIdentifier, 5):
-                self.notifyWatcher()
+                self.notifyWatcher(-1)
                 self.putToO2A((msgType, fileList, senderUsername, True))
 
     #===========================================================================
@@ -498,8 +503,10 @@ class Overlay:
             targetIP, targetPort = self.splitIpAndPort(identifier)
             # send refFL to network
             self.putToO2N((msgType, fileList, self.ownUsername, self.ownIP, self.ownPort, targetIP, int(targetPort)))
+            # calculate file Count
+            fileCount = self.calcFileCount(fileList)
             # send periodically messages to the watcher
-            self.notifyWatcher()
+            self.notifyWatcher(fileCount)
             
     #===========================================================================
     # processIncReqFile
@@ -563,7 +570,7 @@ class Overlay:
         
         targetIdentifier = str(targetIP) + ":" + str(targetPortUDP)
         
-        self.putToO2A((msgType, self.neighbors[targetIdentifier], filePath, successflag))
+        self.putToO2A((msgType, self.neighbors[targetIdentifier][0], filePath, successflag))
         
         
         
