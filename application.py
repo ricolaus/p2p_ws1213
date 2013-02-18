@@ -248,7 +248,7 @@ class Application:
             infoFile.close()
     
     def allPartsReceived(self, fileName, fileHash):
-        if len(self.fileSet[(fileName, fileHash)][0]) == int(self.fileSet[(fileName, fileHash)][1]):
+        if len(set(self.fileSet[(fileName, fileHash)][0])) == int(self.fileSet[(fileName, fileHash)][1]):
             if len(self.fileSet[(fileName, fileHash)][0]) != len(set(self.fileSet[(fileName, fileHash)][0])):
                 print "ERRRRRRRRRRRRRRRRRRRRRRRRRRRRRROR" , self.fileSet[(fileName, fileHash)][0]
             return True
