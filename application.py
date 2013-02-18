@@ -212,7 +212,7 @@ class Application:
                     pos = newList[reqFile, reqHash][0].index(reqPart)
                     del newList[reqFile, reqHash][0][pos]
             #delete komplete entry if part list is empty
-                if newList(reqFile, reqHash)[0] == []:
+                if newList[reqFile, reqHash][0] == []:
                     del newList[reqFile, reqHash] 
                         
         return newList
