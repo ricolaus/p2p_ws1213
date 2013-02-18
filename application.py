@@ -108,7 +108,7 @@ class Application:
                 x.add(str(partNumber))
                 del self.fileSet[(fileName, fileHash)][0][:]
                 self.fileSet[(fileName, fileHash)][0].extend(list(x))
-                print self.fileSet[(fileName, fileHash)][0]
+                # print self.fileSet[(fileName, fileHash)][0]
             #if all file parts received, create complete file or finish first sending parts
             if self.allPartsReceived(fileName, fileHash):
                 if self.noPartisSend(fileName, fileHash):
@@ -144,9 +144,9 @@ class Application:
     
     def processIncRefFl(self, message):
         recFiles, sendUser, urgent = message
-        print recFiles
+        #print recFiles
         newFiles = self.compareFileLists(recFiles)
-        print newFiles
+        #print newFiles
         #print newFiles
         #message urgent? -> send refFl
         if urgent:
@@ -256,14 +256,15 @@ class Application:
         try:
             if len(set(self.fileSet[(fileName, fileHash)][0])) == int(self.fileSet[(fileName, fileHash)][1]):
                 if len(self.fileSet[(fileName, fileHash)][0]) != len(set(self.fileSet[(fileName, fileHash)][0])):
-                    print "ERRRRRRRRRRRRRRRRRRRRRRRRRRRRRROR" , self.fileSet[(fileName, fileHash)][0]
+                    pass
+                    #print "ERRRRRRRRRRRRRRRRRRRRRRRRRRRRRROR" , self.fileSet[(fileName, fileHash)][0]
                 return True
             else:
                 return False
         except Exception:
-            print "BBBBBBBBBBBBBBBBBBBGGGGGGGGGGG EXCEPTION"
-            print self.fileSet[(fileName, fileHash)][0]
-            print self.fileSet[(fileName, fileHash)][1]
+            #print "BBBBBBBBBBBBBBBBBBBGGGGGGGGGGG EXCEPTION"
+            #print self.fileSet[(fileName, fileHash)][0]
+            #print self.fileSet[(fileName, fileHash)][1]
             os.abort()
         
     def createFileFromParts(self, fileName, fileHash):
@@ -272,7 +273,7 @@ class Application:
             vers = self.nextVersion(fileName, fileHash)
             fsName = createFSname(fileName, vers)
             filePath = join(self.folderName, fsName)
-            mfile = open(filePath, "w+b")
+            mfile = open(filePath, "wb")
             #real range needed
             for i in range(1, int(self.fileSet[fileName,fileHash][1]) + 1):
                 partPath = self.getAbsPartPath(fileName, fileHash, str(i))
@@ -283,8 +284,13 @@ class Application:
             mfile.close()
             partFolder = join(self.folderName, r"." + fileName + r"_" + fileHash)
             shutil.rmtree(partFolder)
-            #delete all parts in the parts-list
-            del self.fileSet[(fileName, fileHash)][0][:] 
+            mhash = getHash(filePath)
+            if mhash != fileHash:
+                os.remove(filePath)
+                del self.fileSet[(fileName, fileHash)]
+            else:
+                #delete all parts in the parts-list
+                del self.fileSet[(fileName, fileHash)][0][:] 
      
     def nextVersion(self, fileName, fileHash):
         versions = []

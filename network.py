@@ -160,13 +160,13 @@ class Network(object):
 	def __sendTCP(self, ip, portUDP, portTCP, filePath, filePart):
 		sockSend = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
 		#print ip + str(portTCP)
-		sockSend.connect((ip, int(portTCP)))
 		try: 
+			sockSend.connect((ip, int(portTCP)))
 			nachricht = "LETSGOON;" +  filePath
 			sockSend.send(nachricht) 
 			index = 0
 			filePart = int(filePart)
-			filePart = 1
+			#filePart = 1
 			while True:
 				try:
 					antwort = sockSend.recv(self.__BUFFERSIZE_FILE)
