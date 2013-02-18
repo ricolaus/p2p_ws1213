@@ -88,8 +88,8 @@ def createGraph():
     try:
         # save the graph into a file
         graph.write_png('network.png')
-    except:
-        print "Failed to write network.png"
+    except Exception as msg:
+        print "Failed to write network.png: " + str(msg)
     
     
 def update():

@@ -56,12 +56,10 @@ class Overlay:
         # start thread which checks the currency for the pings
         self.pingPongCurrencyThread = threading.Thread(target=self.checkPingPongCurrency)
         self.pingPongCurrencyThread.start()
+        # last sent ping id
+        self.lastSentPingID = ""
         # bootstrapping
         self.sendPing(bootstrappingIP, bootstrappingPort)
-        # lock for notifyWatcher
-#        self.notifyLock = threading.Lock()
-        # lock for neighbors
-#        self.neighborsLock = threading.Lock() 
     
     #===========================================================================
     # terminate
@@ -87,6 +85,7 @@ class Overlay:
         self.putToO2N(("ping", msgID, 4, 0, self.ownUsername, self.ownIP, self.ownPort, ip, int(port)))
         # add to ping dictionary
         self.pingDict[msgID] = (identifier, 10)
+        self.lastSentPingID = msgID
     
     #===========================================================================
     # splitIpAndPort
@@ -131,20 +130,13 @@ class Overlay:
     #===========================================================================
     def notifyWatcher(self):
         
-#        self.notifyLock.acquire()
-        
         # print "Enter notifyWatcher()"
         neighborList = []
         
-#        self.neighborsLock.acquire()
         for identifier in self.neighbors.keys():
             # append username and currency of the neighbor
             neighborList.append(self.neighbors[identifier])
-#        self.neighborsLock.release()
-        
         message = ("neighbors", self.ownUsername, neighborList)
-        
-#        self.notifyLock.release()
         
         self.putTowatcherQ(message)
             
@@ -193,10 +185,8 @@ class Overlay:
     #===========================================================================
     def addToNeighbours(self, username, identifier, currency):
         # peer := (username, identifier)
-        if not identifier == self.ownIdentifier and not self.neighbors.has_key(identifier) and len(self.neighbors) < 6:
-#            self.neighborsLock.acquire()
+        if not identifier == self.ownIdentifier and not self.neighbors.has_key(identifier) and len(self.neighbors) < 8:
             self.neighbors[identifier] = (username, currency)
-#            self.neighborsLock.release()
             return True
         else:
             return False
@@ -204,12 +194,12 @@ class Overlay:
     #===========================================================================
     # refreshNeighbours
     #
-    # Trys to add max. 5 of the known peers to the neighbor list.
+    # Trys to add max. 4 of the known peers to the neighbor list.
     #===========================================================================
     def refreshNeighbours(self):
         neighborAdded = False
-        number = 5
-        if len(self.knownPeers) < 5:
+        number = 4
+        if len(self.knownPeers) < 4:
             number = len(self.knownPeers)
         
         sample = random.sample(self.knownPeers, number) 
@@ -219,7 +209,7 @@ class Overlay:
                 neighborAdded = True
             # remove from known peers
             self.knownPeers.remove(knownPeer)
-                
+        
         if neighborAdded:
             self.notifyWatcher() 
 
@@ -307,7 +297,7 @@ class Overlay:
         
         # print "Enter processpong()"
         
-        msgType, msgID, origPeers = message
+        msgID, origPeers = message[1:]
         peers = []
         
         # concatenate ip and port
@@ -328,8 +318,11 @@ class Overlay:
         
         # save pong in pongDict
         if msgID in self.pingDict:
+            currency = 5
+            if msgID == self.lastSentPingID:
+                currency = 0
             # add new pong message with ip set of peers and currency level
-            self.pongDict[msgID] = (self.pingDict[msgID][0], peerSet, 5)
+            self.pongDict[msgID] = (self.pingDict[msgID][0], peerSet, currency)
             self.pingDict.pop(msgID)
         elif msgID in self.pongDict:
             # add peers from further pong messages to peerSet
@@ -341,7 +334,6 @@ class Overlay:
                 self.pongDict[msgID] = (self.pongDict[msgID][0], peerSet, self.pongDict[msgID][2])
         else:
             print str(self.ownUsername) + ": Cannot save pong because a ping with the id (" + str(msgID) + ") has not arrived before or has already been deleted."
-
 
       
     #===========================================================================
@@ -358,20 +350,12 @@ class Overlay:
             time.sleep(2)
             neighborDropped = False
             
-#            self.neighborsLock.acquire()
             for identifier in self.neighbors.keys():
                 if self.neighbors[identifier][1] > 0:
                     self.neighbors[identifier] = (self.neighbors[identifier][0], self.neighbors[identifier][1] - 1)
                 else:
                     self.neighbors.pop(identifier)
                     neighborDropped = True
-                
-#                print self.neighbors
-#                peer = (self.neighbors[identifier][0], identifier) 
-#                if peer in self.knownPeers:
-#                    self.knownPeers.remove(peer)
-#                print self.knownPeers
-#            self.neighborsLock.release()
             
             if neighborDropped:
                 self.notifyWatcher()
@@ -425,7 +409,6 @@ class Overlay:
                         # finally send pong message
                         self.putToO2N(("pong", key, peerList, targetIP, int(targetPort)))
                     
-                    
                     # remove from dictionary
                     self.pongDict.pop(key)                    
         
@@ -463,15 +446,12 @@ class Overlay:
         
         existing = False
         
-#       self.neighborsLock.acquire()
         for identifier in self.neighbors.keys():
             if(self.neighbors[identifier][0] == senderUsername and identifier == senderIdentifier):
                 self.putToO2A((msgType, fileList, senderUsername, False))
                 self.neighbors[senderIdentifier] = (senderUsername, 5)
-#                print self.neighbors
                 existing = True
                 break
-#        self.neighborsLock.release()
         
         if not existing:
             if self.addToNeighbours(senderUsername, senderIdentifier, 5):
@@ -488,8 +468,8 @@ class Overlay:
         # print "Enter processOutRefFL()"
         
         msgType, fileList = message
-        
-        if len(self.neighbors) < 5:
+        # if not enough neighbors and not waiting for a ping answer 
+        if len(self.neighbors) < 4 and not self.lastSentPingID in self.pingDict.keys() and not self.lastSentPingID in self.pongDict.keys():
             if len(self.knownPeers) > 0:
                 
                 peerIsNeighbor = True
@@ -512,7 +492,6 @@ class Overlay:
                 rndIdentifier = random.choice(self.neighbors.keys())
                 ip, port = self.splitIpAndPort(rndIdentifier)
                 self.sendPing(ip, port) 
-            
         
         for identifier in self.neighbors.keys():
             # split identifier
@@ -565,7 +544,7 @@ class Overlay:
         
         msgType, filePath, partNumber, targetUsername, targetPortTCP = message
         
-        for identifier in self.neighbors.keys:
+        for identifier in self.neighbors.keys():
             if(self.neighbors[identifier][0] == targetUsername):
                 # split identifier
                 targetIP, targetPortUDP = self.splitIpAndPort(identifier)
