@@ -341,7 +341,7 @@ class Network(object):
 			try:
 				sendTuple = self.__watcherQ.get(True, 1.0)
 				
-				print "[SEND] %s %s %s" % (self.__userFolder, sendTuple[0], str(sendTuple[len(sendTuple) - 1]))
+				print "[SEND] %s %s %s" % (self.__userFolder, sendTuple[0], '1337')
 				# sending neighbor list
 				# neighbors (o2n) := ("neighbors", sendUsername, neighborList, fileCount)
 				if sendTuple[0] == "neighbors":

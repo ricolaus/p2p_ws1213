@@ -118,14 +118,36 @@ class Overlay:
         if self.o2n:
             self.o2n.put(message, True)
      
+    #===========================================================================
+    # putTowatcherQ
+    #
+    # Puts a message into the outgoing queue to the watcher.
+    #===========================================================================
     def putTowatcherQ(self, message):
         # print "Enter putTowatcherQ()"
         if self.watcherQ:
             self.watcherQ.put(message, True)
     
+    #===========================================================================
+    # calcFileCount
+    #
+    # Calculates the file count from a given file list.
+    #===========================================================================
     def calcFileCount(self, fileList):
-        fileCount = len(fileList)
+        fileCount = float(0)
         
+        # fileSet := {(fileName, fileHash) : ([part1, part2, ...], maxParts, 0, "0")
+        for fileInfo in fileList.values():
+            partList, maxParts = fileInfo[:2]
+            partCount = len(partList)
+            if partCount == 0:
+                fileCount += 1
+            else:
+                try:
+                    fileCount += float(partCount)/float(maxParts)
+                except:
+                    print "maxParts is 0"
+                
         return fileCount
     
     #===========================================================================
