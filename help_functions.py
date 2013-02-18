@@ -11,6 +11,8 @@ def getPartLenLast(filePath):
     return partLenLast
 
 def getPartCount(filePath):
+    if getFileSize(filePath) == 0:
+        return 1
     partCount = getFileSize(filePath) // partSize
     if getPartLenLast(filePath) > 0:
         partCount = partCount + 1
