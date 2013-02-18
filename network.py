@@ -127,7 +127,7 @@ class Network(object):
 						try:
 							data = con.recv(self.__BUFFERSIZE_FILE)
 						except socket.error as msg:
-							# print msg
+							#print msg
 							data = "exception thrown"
 						if data == "exception thrown":
 							continue 
@@ -138,6 +138,8 @@ class Network(object):
 						# bitRate = bitRate + float(len(data)*8) / float((ende - start))
 						bitRateCounter = bitRateCounter + 1
 					print "Transferate %0.3f Mbit/s" % (bitRate / bitRateCounter)
+					if recvData == "None":
+						recvData = ""
 					filoName = "part" + str(filePart)
 					if not os.path.isdir(filePath):
 						os.mkdir(filePath)
