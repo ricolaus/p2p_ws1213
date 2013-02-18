@@ -169,7 +169,7 @@ class Application:
         fileName, fileHash = random.choice(newList.keys())
         #print fileName
         #print fileHash
-        print newList[(fileName, fileHash)][0]
+        #print newList[(fileName, fileHash)][0]
         part = random.choice(newList[(fileName, fileHash)][0])
         return fileName, fileHash, part
     
@@ -249,6 +249,8 @@ class Application:
     
     def allPartsReceived(self, fileName, fileHash):
         if len(self.fileSet[(fileName, fileHash)][0]) == int(self.fileSet[(fileName, fileHash)][1]):
+            if len(self.fileSet[(fileName, fileHash)][0]) != len(set(self.fileSet[(fileName, fileHash)][0])):
+                print "ERRRRRRRRRRRRRRRRRRRRRRRRRRRRRROR" , self.fileSet[(fileName, fileHash)][0]
             return True
         else:
             return False
@@ -301,11 +303,12 @@ class Application:
     #returns directory of existing incomplete files (parts folder) formatet like self.fileSet  
     def incompletFileDir(self):
         dirList = {}
-        partsList = []
+        
 
         x = re.compile(r"\.(.+)_([0-9a-f]{32})$")  
         pathes = os.listdir(self.folderName)  
         for path in pathes:
+            partsList = []
             y = x.match(path)
             if y:
                 dirPath = join(self.folderName, path)
@@ -413,6 +416,7 @@ def createFSname(filename, vers):
     # TODO: error message
     return None    
 
+print set(["1", "2", "1"])
 
 #x = re.compile(r"\.(.+)_([0-9a-f]{32})")    
 #y = x.match(r".README_dc398ec03cf524964ecad3577deb4678")
