@@ -3,6 +3,7 @@ import time
 import random
 import threading
 import pydot
+import math
 
 
 from watcherNetwork import Network
@@ -17,11 +18,15 @@ def colorList(i):
     r = i % 10
     g = (i//10) % 10
     b = (i//100) % 10
-    return "#%x" %(r*25) + "%x" %(g*25) + "%x" %(b*25)  
+    if i > 500:
+        fontColor = "#000000"
+    else:
+        fontColor = "#FFFFFF"
+    return ("#%x" %(r*25) + "%x" %(g*25) + "%x" %(b*25), fontColor)
 
 def addNewInformation():
     message = n2w.get(True)
-    color = colorList(random.randint(200, 800))
+    fillColor, fontColor = colorList(random.randint(0, 999))
                   
     # neighbor message arrived
     if message[0] == "neighbors":
@@ -34,10 +39,11 @@ def addNewInformation():
         if userName in networkStructure.keys():
             if fileCount == -1.0:
                 fileCount = networkStructure[userName][1]
-            color =  networkStructure[userName][2]
-            networkStructure[userName] = (neighbors, fileCount, color)
+            fillColor = networkStructure[userName][2]
+            fontColor = networkStructure[userName][3]
+            networkStructure[userName] = (neighbors, fileCount, fillColor, fontColor)
         else:
-            networkStructure[userName] = (neighbors, fileCount, color)
+            networkStructure[userName] = (neighbors, fileCount, fillColor, fontColor)
     else:
         print "Message with unknown type arrived: " + message[0]
 
@@ -50,10 +56,10 @@ def createGraph():
     
     for user in networkStructure.keys():
         if networkStructure[user][1] > -1.0:
-            fileCount = " (" + str(networkStructure[user][1]) + ")"
+            fileCount = " (" + "%.2f" % networkStructure[user][1] + ")"
         nodeName = user + fileCount
         # create and add node
-        node = pydot.Node(nodeName, style="filled", fillcolor=networkStructure[user][2])
+        node = pydot.Node(nodeName, style="filled", fillcolor=networkStructure[user][2], fontcolor=networkStructure[user][3])
         # add to the dictionary
         nodeDict[user] = node 
         # add to the graph
