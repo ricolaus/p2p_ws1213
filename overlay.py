@@ -1,5 +1,6 @@
 import threading, time
 import random
+import Queue
 # import sys
 # import copy
 
@@ -67,7 +68,7 @@ class Overlay:
     # Initiates the termination of all threads.
     #===========================================================================
     def terminate(self):
-        print "Enter terminate()"
+        print "Terminate overlay layer."
         self.__terminated = True
         
     #===========================================================================
@@ -105,7 +106,7 @@ class Overlay:
         # print "Enter getFromN2O()"
         message = ()
         if self.n2o:
-            message = self.n2o.get(True)
+            message = self.n2o.get(True, 1.0)
         return message
        
     #===========================================================================
@@ -177,7 +178,7 @@ class Overlay:
         # print "Enter getFromA2O()"
         message = ()
         if self.a2o:
-            message = self.a2o.get(True)
+            message = self.a2o.get(True, 1.0)
         return message
        
     #===========================================================================
@@ -249,21 +250,25 @@ class Overlay:
     def watchN2O(self):
         # print "Enter watchN2O()"
         while not self.__terminated:
-            message = self.getFromN2O()
-            if message[0] == "ping":
-                self.processping(message)
-            elif message[0] == "pong":
-                self.processpong(message)
-            elif message[0] == "refFL":
-                self.processIncRefFL(message)
-            elif message[0] == "reqFile":
-                self.processIncReqFile(message)
-            elif message[0] == "fileTransSend":
-                self.processUpFileTransSend(message)
-            elif message[0] == "fileTransRecv":
-                self.putToO2A(message)
-            else:
-                print "Unknown message type: " + str(message[0]) 
+            try:
+                message = self.getFromN2O()
+                if message[0] == "ping":
+                    self.processping(message)
+                elif message[0] == "pong":
+                    self.processpong(message)
+                elif message[0] == "refFL":
+                    self.processIncRefFL(message)
+                elif message[0] == "reqFile":
+                    self.processIncReqFile(message)
+                elif message[0] == "fileTransSend":
+                    self.processUpFileTransSend(message)
+                elif message[0] == "fileTransRecv":
+                    self.putToO2A(message)
+                else:
+                    print "Unknown message type: " + str(message[0])
+            except Queue.Empty:
+                pass
+                 
             
     #===========================================================================
     # processping
@@ -448,15 +453,18 @@ class Overlay:
     def watchA2O(self):
         # print "Enter watchA2O()"
         while not self.__terminated:
-            message = self.getFromA2O()
-            if message[0] == "refFL":
-                self.processOutRefFL(message)
-            elif message[0] == "reqFile":
-                self.processOutReqFile(message)
-            elif message[0] == "sendFile":
-                self.processDownSendFile(message)
-            else:
-                print "Unknown message type: " + str(message[0]) 
+            try:
+                message = self.getFromA2O()
+                if message[0] == "refFL":
+                    self.processOutRefFL(message)
+                elif message[0] == "reqFile":
+                    self.processOutReqFile(message)
+                elif message[0] == "sendFile":
+                    self.processDownSendFile(message)
+                else:
+                    print "Unknown message type: " + str(message[0])
+            except Queue.Empty:
+                pass 
         
     #===========================================================================
     # processIncRefFL
