@@ -146,6 +146,7 @@ class Overlay:
                 try:
                     fileCount += float(partCount)/float(maxParts)
                 except:
+                    #TODO: 
                     print "maxParts is 0"
                 
         return fileCount
