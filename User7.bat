@@ -1,1 +1,0 @@
-start python client.py "User7" "User7/" "localhost" 50007 "localhost" 50006 60070 10

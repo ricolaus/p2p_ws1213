@@ -26,11 +26,13 @@ def addNewInformation():
     # neighbor message arrived
     if message[0] == "neighbors":
         userName, neighbors, fileCount = message[1:]
+        fileCount = float(fileCount)
+        
         # add to currency dictionary
         peers[userName] = 5
         
         if userName in networkStructure.keys():
-            if fileCount == '-1':
+            if fileCount == -1.0:
                 fileCount = networkStructure[userName][1]
             color =  networkStructure[userName][2]
             networkStructure[userName] = (neighbors, fileCount, color)
@@ -44,9 +46,12 @@ def createGraph():
     # create a new digraph
     graph = pydot.Dot(graph_type='digraph')
     nodeDict = {}
+    fileCount = ""
     
     for user in networkStructure.keys():
-        nodeName = user + " (" + str(networkStructure[user][1]) + ")"
+        if networkStructure[user][1] > -1.0:
+            fileCount = " (" + str(networkStructure[user][1]) + ")"
+        nodeName = user + fileCount
         # create and add node
         node = pydot.Node(nodeName, style="filled", fillcolor=networkStructure[user][2])
         # add to the dictionary
@@ -74,7 +79,7 @@ def createGraph():
             if neighbor[0] in nodeDict.keys():
                 neighborNode = nodeDict[neighbor[0]]
             else:
-                neighborNode = pydot.Node(neighbor[0] + " (-1)", style="filled", color=edgeColor)
+                neighborNode = pydot.Node(neighbor[0], style="filled", color=edgeColor)
             # add the edge to the graph
             graph.add_edge(pydot.Edge(nodeDict[user], neighborNode, style=edgeStyle))
     try:
