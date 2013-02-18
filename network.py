@@ -25,7 +25,7 @@ class Network(object):
 		self.__HASHLENGTH = 5
 		self.__BUFFERSIZE_UDP = 63
 		self.__BUFFERSIZE_TCP = 1024
-		self.__BUFFERSIZE_FILE = 65536
+		self.__BUFFERSIZE_FILE = 1024 * 32
 		
 	def run(self):
 		t0 = Thread(target=self.__recvUdp, args=())
@@ -163,6 +163,8 @@ class Network(object):
 			nachricht = "LETSGOON;" +  filePath
 			sockSend.send(nachricht) 
 			index = 0
+			filePart = int(filePart)
+			filePart = 1
 			while True:
 				try:
 					antwort = sockSend.recv(self.__BUFFERSIZE_FILE)
@@ -182,7 +184,7 @@ class Network(object):
 					chunkSize = self.__BUFFERSIZE_FILE
 					sendData = help_functions.readFilePart(filePart, filePath)
 					if chunkSize >= len(str(sendData)):
-						sockSend.sendall(sendData)
+						sockSend.sendall(str(sendData))
 						self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, True))
 					else:
 						print "Partsize groesser als BufferSize"
@@ -192,7 +194,7 @@ class Network(object):
 							chunkCount = chunkCount + 1
 							
 						for i in range(chunkCount):
-							sockSend.sendall(sendData[i*chunkSize:(i+1)*chunkSize])
+							sockSend.sendall(str(sendData[i*chunkSize:(i+1)*chunkSize]))
 						self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, True))
 				elif filePart == 0:
 					sendFile = open(filePath, 'rb')
@@ -253,7 +255,7 @@ class Network(object):
 			try:
 				sendTuple = self.__sendQueue.get(True, 0.1)
 				
-				print "[SEND] %s %s %s" % (self.__userFolder, sendTuple[0], str(sendTuple[len(sendTuple) - 1]))
+				print "[SEND] %s %s %s %s" % (self.__userFolder, sendTuple[0], str(sendTuple[len(sendTuple) - 1]), str(sendTuple[1]))
 				#print sendTuple
 				#Ping
 				#outgoing ping (o2n) := ("ping", pingID, ttl, hops, ownUsername, ownIP, ownPort, targetIP, targetPort)

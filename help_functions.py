@@ -1,6 +1,6 @@
 import os
 
-partSize = 1024
+partSize = 1024 * 1024 * 5
 
 def getFileSize(filePath):
     fileSize = os.path.getsize(filePath)
@@ -27,6 +27,7 @@ def readFilePart(partNumb, filePath):
     if partLenLast > 0:
         partCount = partCount + 1
 
+    print "%s %s %s %s" % (str(partNumb), filePath, str(partLenLast), str(partCount))
     if partNumb > partCount:
         print "partNumb zu gross"
         return
