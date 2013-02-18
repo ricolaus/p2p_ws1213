@@ -103,7 +103,12 @@ class Application:
                 self.fileSet[fileName, fileHash] = ([str(partNumber)], maxParts, 0, "0")
             #add PartNumber to parts-list in fileSet-entry
             else:
-                self.fileSet[(fileName, fileHash)][0].append(str(partNumber))
+                
+                x = set(self.fileSet[(fileName, fileHash)][0])
+                x.add(str(partNumber))
+                del self.fileSet[(fileName, fileHash)][0][:]
+                self.fileSet[(fileName, fileHash)][0].extend(list(x))
+                print self.fileSet[(fileName, fileHash)][0]
             #if all file parts received, create complete file or finish first sending parts
             if self.allPartsReceived(fileName, fileHash):
                 if self.noPartisSend(fileName, fileHash):
@@ -248,12 +253,18 @@ class Application:
             infoFile.close()
     
     def allPartsReceived(self, fileName, fileHash):
-        if len(set(self.fileSet[(fileName, fileHash)][0])) == int(self.fileSet[(fileName, fileHash)][1]):
-            if len(self.fileSet[(fileName, fileHash)][0]) != len(set(self.fileSet[(fileName, fileHash)][0])):
-                print "ERRRRRRRRRRRRRRRRRRRRRRRRRRRRRROR" , self.fileSet[(fileName, fileHash)][0]
-            return True
-        else:
-            return False
+        try:
+            if len(set(self.fileSet[(fileName, fileHash)][0])) == int(self.fileSet[(fileName, fileHash)][1]):
+                if len(self.fileSet[(fileName, fileHash)][0]) != len(set(self.fileSet[(fileName, fileHash)][0])):
+                    print "ERRRRRRRRRRRRRRRRRRRRRRRRRRRRRROR" , self.fileSet[(fileName, fileHash)][0]
+                return True
+            else:
+                return False
+        except Exception:
+            print "BBBBBBBBBBBBBBBBBBBGGGGGGGGGGG EXCEPTION"
+            print self.fileSet[(fileName, fileHash)][0]
+            print self.fileSet[(fileName, fileHash)][1]
+            os.abort()
         
     def createFileFromParts(self, fileName, fileHash):
         
@@ -374,14 +385,18 @@ class Application:
       
 
 def getHash(filepath): 
-    md5 = hashlib.md5()
-    f = open(filepath,'rb')
     while True:
-        data = f.read(8192)
-        if not data:
-            break
-        md5.update(data)
-    return md5.hexdigest()
+        try:
+            md5 = hashlib.md5()
+            f = open(filepath,'rb')
+            while True:
+                data = f.read(8192)
+                if not data:
+                    break
+                md5.update(data)
+            return md5.hexdigest()
+        except Exception:
+            continue
     
     
 
@@ -416,7 +431,6 @@ def createFSname(filename, vers):
     # TODO: error message
     return None    
 
-print set(["1", "2", "1"])
 
 #x = re.compile(r"\.(.+)_([0-9a-f]{32})")    
 #y = x.match(r".README_dc398ec03cf524964ecad3577deb4678")
