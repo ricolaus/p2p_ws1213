@@ -206,11 +206,11 @@ class Application:
                         del newList[entry]
                     
         #delete all entries that are already requested
-        for reqHash, reqFile, reqPart in self.reqFiles:
-            if (reqHash, reqFile) in newList.keys():
-                if reqPart in newList[reqHash, reqFile][0]:
-                    pos = newList[reqHash, reqFile][0].index(reqPart)
-                    del newList[reqHash, reqFile][0][pos]
+        for reqFile, reqHash, reqPart in self.reqFiles:
+            if (reqFile, reqHash) in newList.keys():
+                if reqPart in newList[reqFile, reqHash][0]:
+                    pos = newList[reqFile, reqHash][0].index(reqPart)
+                    del newList[reqFile, reqHash][0][pos]
             #delete komplete entry if part list is empty
             if newList(reqFile, reqHash)[0] == []:
                 del newList[reqFile, reqHash] 
