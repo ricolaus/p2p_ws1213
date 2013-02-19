@@ -41,6 +41,8 @@ class Overlay:
         self.knownPeers = []
         # dictionary of all (~5) neighbors with structure: [identifier: (username, currency level)]
         self.neighbors = {}
+        # dictionary of all seen peers
+        self.seenPeers = {}
         # dictionary of received pings with structure: {msgID: (identifier, currency level)}
         self.pingDict = {}
         # message ID's of sent pings
@@ -207,6 +209,8 @@ class Overlay:
                 self.knownPeers.append(peer)
                 if len(self.knownPeers) > 15:
                     self.knownPeers.pop(0)
+        # add/refresh seen peers
+        self.seenPeers[peer[1]] = peer[0]
                     
     #===========================================================================
     # addToNeighbours
@@ -220,6 +224,7 @@ class Overlay:
         # peer := (username, identifier)
         if not identifier == self.ownIdentifier and not self.neighbors.has_key(identifier) and len(self.neighbors) < 8:
             self.neighbors[identifier] = (username, currency)
+            self.seenPeers[identifier] = username
             return True
         else:
             return False
@@ -293,6 +298,8 @@ class Overlay:
         
         # add to/refresh knownPeers list
         self.addToKnownPeers((username, senderIdentifier))
+        # add to/refesh seen peers
+        self.seenPeers[senderIdentifier] = username
         
         if (ttl > 1) and (msgID not in self.pingDict) and (msgID not in self.sentPings):
             # add to ping dictionary
@@ -341,9 +348,10 @@ class Overlay:
         for origPeer in origPeers:
             peers.append((origPeer[0], (str(origPeer[1]) + ":" + str(origPeer[2])) )) 
         
-        # refresh own known peers list
+        # refresh own known peers list and seen peers
         for peer in peers: 
             self.addToKnownPeers(peer)
+            self.seenPeers[peer[1]] = peer[0]
         
         # add own identity to peers list
         if peers.count((self.ownUsername, self.ownIdentifier)) == 0:
@@ -384,7 +392,7 @@ class Overlay:
         
         while not self.__terminated:
             
-            time.sleep(2)
+            time.sleep(4)
             neighborDropped = False
             
             for identifier in self.neighbors.keys():
@@ -497,6 +505,8 @@ class Overlay:
             if self.addToNeighbours(senderUsername, senderIdentifier, 5):
                 self.notifyWatcher(-1)
                 self.putToO2A((msgType, fileList, senderUsername, True))
+                # add to/refresh seen peers
+                self.seenPeers[senderUsername] = senderIdentifier
 
     #===========================================================================
     # processOutRefFL
@@ -558,7 +568,7 @@ class Overlay:
         
         senderIdentifier = str(senderIP) + ":" + str(senderPortUDP)
         
-        self.putToO2A((msgType, fileName, fileHash, filePart, self.neighbors[senderIdentifier][0], senderPortTCP))
+        self.putToO2A((msgType, fileName, fileHash, filePart, self.seenPeers[senderIdentifier], senderPortTCP))
 
 
     #===========================================================================
@@ -608,7 +618,7 @@ class Overlay:
         
         targetIdentifier = str(targetIP) + ":" + str(targetPortUDP)
         
-        self.putToO2A((msgType, self.neighbors[targetIdentifier][0], filePath, successflag))
+        self.putToO2A((msgType, self.seenPeers[targetIdentifier], filePath, successflag))
         
         
         
