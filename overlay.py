@@ -209,6 +209,8 @@ class Overlay:
                 self.knownPeers.append(peer)
                 if len(self.knownPeers) > 15:
                     self.knownPeers.pop(0)
+        # add/refresh seen peers
+        self.seenPeers[peer[1]] = peer[0]
                     
     #===========================================================================
     # addToNeighbours
@@ -222,6 +224,7 @@ class Overlay:
         # peer := (username, identifier)
         if not identifier == self.ownIdentifier and not self.neighbors.has_key(identifier) and len(self.neighbors) < 8:
             self.neighbors[identifier] = (username, currency)
+            self.seenPeers[identifier] = username
             return True
         else:
             return False
