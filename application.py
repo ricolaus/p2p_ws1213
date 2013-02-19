@@ -141,6 +141,7 @@ class Application:
     
     def processIncReqFile(self, message):
         fileName, fileHash, part, senderUsername, port = message
+        
         #part = "0"
         # TODO: decide to send the file or not, policy, maybe test if part is really in fs
         if (fileName, fileHash) not in self.filesToComplete and (fileName, fileHash) in self.fileSet and not self.alreadySendingToReceiver(senderUsername) and (fileName, fileHash, part) not in self.sendFiles and self.maxSendNumber > len(self.sendFiles):
@@ -158,10 +159,12 @@ class Application:
             self.sendFiles[(fileName, fileHash, part)] = senderUsername
             reply = ("sendFile", filepath,  part, senderUsername, port)
             self.outQueue.put(reply, True)
-        else:
+        elif (fileName, fileHash, part) in self.sendFiles:
+            if self.sendFiles[(fileName, fileHash, part)] == senderUsername:
+                del self.sendFiles[(fileName, fileHash, part)]
             #print str(not self.alreadySendingToReceiver(senderUsername)) + self.sendFiles
             #print str((fileName, fileHash, part) not in self.sendFiles) + self.sendFiles
-            pass
+            #pass
         
     
     def processIncRefFl(self, message):
