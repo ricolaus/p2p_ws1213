@@ -103,7 +103,7 @@ class Application:
                 del self.sendFiles[key]
                 if (key[0], key[1]) in self.filesToComplete and self.noPartisSend(key[0], key[1]):
                     self.createFileFromParts(key[0], key[1])
-                    self.filesToComplete.remove((key[0], key[1])
+                    self.filesToComplete.remove((key[0], key[1]))
                 break
         # TODO: if file in filestocomplete check if still in send.Files, else create files from parts
         
