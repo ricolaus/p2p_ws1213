@@ -161,7 +161,10 @@ class Application:
             self.outQueue.put(reply, True)
         elif (fileName, fileHash, part) in self.sendFiles:
             if self.sendFiles[(fileName, fileHash, part)] == senderUsername:
-                del self.sendFiles[(fileName, fileHash, part)]
+                for key, value in self.sendFiles.items():
+                    if value == senderUsername:
+                        del self.sendFiles[key]
+                        #del self.sendFiles[(fileName, fileHash, part)]
             #print str(not self.alreadySendingToReceiver(senderUsername)) + self.sendFiles
             #print str((fileName, fileHash, part) not in self.sendFiles) + self.sendFiles
             #pass
