@@ -10,12 +10,13 @@ import ast
 import help_functions
 
 class Network(object): 
-	def __init__(self, userFolder, ip, pRecv, startPort, countPort, recvQueue, sendQueue, watcherQueue, mode): 
+	def __init__(self, userFolder, ip, pRecv, startPort, countPort, recvQueue, sendQueue, watcherQueue, watcherIP, mode): 
 		self.__ip = ip
 		self.__userFolder = userFolder
 		self.__recvQueue = recvQueue
 		self.__sendQueue = sendQueue
 		self.__watcherQ = watcherQueue
+		self.__watcherIP = watcherIP
 		self.__portRecv = pRecv
 		self.__mode = mode
 		self.__portQueue = Queue.Queue()
@@ -26,6 +27,16 @@ class Network(object):
 		self.__BUFFERSIZE_UDP = 63
 		self.__BUFFERSIZE_TCP = 1024
 		self.__BUFFERSIZE_FILE = 1024 * 32
+		self.__terminated = False
+		
+	#===========================================================================
+	# terminate
+	#
+	# Initiates the termination of all threads.
+	#===========================================================================
+	def terminate(self):
+		print "Terminate network layer."
+		self.__terminated = True
 		
 	def run(self):
 		t0 = Thread(target=self.__recvUdp, args=())
@@ -148,13 +159,14 @@ class Network(object):
 					fileRecv.write(recvData)
 					fileRecv.close()
 					#print datetime.now().microsecond
-					self.__portQueue.put(port)
+					#self.__portQueue.put(port)
 					self.__recvQueue.put(("fileTransRecv", fileName, fileHash, filePart, True))
 					break
 		except socket.error as msg:
 			print "recvTCP: " + str(msg)
 		finally: 
 			sockRecv.close()
+		self.__portQueue.put(port)
 		#nachricht an appli das daten nicht gesendet wurden oder return
 
 	def __sendTCP(self, ip, portUDP, portTCP, filePath, filePart):
@@ -189,7 +201,7 @@ class Network(object):
 						sockSend.sendall(str(sendData))
 						self.__recvQueue.put(("fileTransSend", ip, portUDP, filePath, True))
 					else:
-						print "Partsize groesser als BufferSize"
+						#print "Partsize groesser als BufferSize"
 						chunkCount = len(str(sendData)) // chunkSize
 						chunkLenLast = len(str(sendData)) % (chunkSize)
 						if chunkLenLast > 0:
@@ -253,12 +265,12 @@ class Network(object):
 	
 	def __sendUdp(self):
 		print "sendUdp start"
-		while True:
+		while not self.__terminated:
 			try:
 				sendTuple = self.__sendQueue.get(True, 0.1)
 				
-				print "[SEND] %s %s %s %s" % (self.__userFolder, sendTuple[0], str(sendTuple[len(sendTuple) - 1]), str(sendTuple[1]))
-				#print sendTuple
+				print "[SEND] %s %s %s" % (self.__userFolder, sendTuple[0], str(sendTuple[len(sendTuple) - 1]))
+				print sendTuple
 				#Ping
 				#outgoing ping (o2n) := ("ping", pingID, ttl, hops, ownUsername, ownIP, ownPort, targetIP, targetPort)
 				#TODO: ownPort fehlt
@@ -333,13 +345,12 @@ class Network(object):
 	#				self.__threadArray.append(threadTCP)
 	#				threadTCP.start()
 			except Queue.Empty:
-				if eingabe == "ende":
-					break
+				pass
 		print "sendUdp ende"
 		
 	def __sendUdp2Watcher(self):
 		print "sendUdp2Watcher start"
-		while True:
+		while not self.__terminated:
 			try:
 				sendTuple = self.__watcherQ.get(True, 1.0)
 				
@@ -347,13 +358,12 @@ class Network(object):
 				# sending neighbor list
 				# neighbors (o2n) := ("neighbors", sendUsername, neighborList, fileCount)
 				if sendTuple[0] == "neighbors":
-					sendIP = "127.0.0.1"
+					sendIP = self.__watcherIP
 					sendPort = 1337
 					sendTuple = self.tupleToString(sendTuple)
 					self.__send(sendIP, sendPort, sendTuple)
 			except Queue.Empty:
-				if eingabe == "ende":
-					break
+				pass
 		print "sendUdp2Watcher ende"
 		
 	def tupleToString(self, tup):
@@ -375,7 +385,7 @@ class Network(object):
 			sockRecv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			sockRecv.bind((self.__ip, self.__portRecv))
 			sockRecv.settimeout(0.1)
-			while True:
+			while not self.__terminated:
 				try:
 					data, addr = sockRecv.recvfrom(self.__BUFFERSIZE_UDP)
 				
@@ -406,9 +416,7 @@ class Network(object):
 							del recvDict[(partCount, senderIP, senderPort)]
 							continue
 				except socket.timeout:
-					if eingabe == "ende":
-						break
-					continue
+					pass
 		except socket.error as msg:
 			print msg
 		finally: 

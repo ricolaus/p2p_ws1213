@@ -3,7 +3,7 @@ import time
 import random
 import threading
 import pydot
-import math
+import sys
 
 
 from watcherNetwork import Network
@@ -13,6 +13,7 @@ n2w = Queue.Queue()
 networkStructure = {}
 peers = {}
 lock = threading.Lock()
+terminated = False
 
 def colorList(i):
     r = i % 10
@@ -25,27 +26,30 @@ def colorList(i):
     return ("#%x" %(r*25) + "%x" %(g*25) + "%x" %(b*25), fontColor)
 
 def addNewInformation():
-    message = n2w.get(True)
-    fillColor, fontColor = colorList(random.randint(0, 999))
-                  
-    # neighbor message arrived
-    if message[0] == "neighbors":
-        userName, neighbors, fileCount = message[1:]
-        fileCount = float(fileCount)
-        
-        # add to currency dictionary
-        peers[userName] = 5
-        
-        if userName in networkStructure.keys():
-            if fileCount == -1.0:
-                fileCount = networkStructure[userName][1]
-            fillColor = networkStructure[userName][2]
-            fontColor = networkStructure[userName][3]
-            networkStructure[userName] = (neighbors, fileCount, fillColor, fontColor)
+    try:
+        message = n2w.get(True, 1.0)
+        fillColor, fontColor = colorList(random.randint(0, 999))
+                      
+        # neighbor message arrived
+        if message[0] == "neighbors":
+            userName, neighbors, fileCount = message[1:]
+            fileCount = float(fileCount)
+            
+            # add to currency dictionary
+            peers[userName] = 5
+            
+            if userName in networkStructure.keys():
+                if fileCount == -1.0:
+                    fileCount = networkStructure[userName][1]
+                fillColor = networkStructure[userName][2]
+                fontColor = networkStructure[userName][3]
+                networkStructure[userName] = (neighbors, fileCount, fillColor, fontColor)
+            else:
+                networkStructure[userName] = (neighbors, fileCount, fillColor, fontColor)
         else:
-            networkStructure[userName] = (neighbors, fileCount, fillColor, fontColor)
-    else:
-        print "Message with unknown type arrived: " + message[0]
+            print "Message with unknown type arrived: " + message[0]
+    except Queue.Empty:
+        pass
 
 
 def createGraph():
@@ -96,20 +100,20 @@ def createGraph():
     
     
 def update():
-    while True:
+    while not terminated:
         lock.acquire()
         addNewInformation()
         lock.release()
         
 def writing():
-    while True:
+    while not terminated:
         time.sleep(1)
         lock.acquire()
         createGraph()
         lock.release()
         
 def checkCurrency():
-    while True:
+    while not terminated:
         time.sleep(1)
         
         for name in peers.keys():
@@ -122,8 +126,14 @@ def checkCurrency():
                     
 
 
+argvLen = len(sys.argv)
+if argvLen == 2:
+    watcherIP = str(sys.argv[1])
+else:
+    watcherIP = "localhost"     #str(argv[1])
+
 # initialize and start network layer
-network = Network("127.0.0.1", 1337, n2w)
+network = Network(watcherIP, 1337, n2w)
 network.run()
 
 # start thread which creates the graph
@@ -137,6 +147,12 @@ updateThread.start()
 # start thread which creates the graph
 writingThread = threading.Thread(target=writing)
 writingThread.start()
+
+while not raw_input() == 'e':
+    pass
+
+network.terminate()
+terminated = True
 
 #n2w.put(("neighbors", "User1", [("User0", 1), ("User2", 2)]))
 #time.sleep(2)

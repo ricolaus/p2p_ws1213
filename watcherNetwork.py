@@ -16,6 +16,16 @@ class Network(object):
 		self.__BUFFERSIZE_UDP = 63
 		self.__BUFFERSIZE_TCP = 1024
 		self.__BUFFERSIZE_FILE = 65536
+		self.__terminated = False
+		
+	#===========================================================================
+	# terminate
+	#
+	# Initiates the termination of all threads.
+	#===========================================================================
+	def terminate(self):
+		print "Terminate network layer."
+		self.__terminated = True
 		
 	def run(self):
 		t0 = Thread(target=self.__recvUdp, args=())
@@ -38,7 +48,7 @@ class Network(object):
 			sockRecv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			sockRecv.bind((self.__ip, self.__portRecv))
 			sockRecv.settimeout(1.0)
-			while True:
+			while not self.__terminated:
 				try:
 					data, addr = sockRecv.recvfrom(self.__BUFFERSIZE_UDP)
 				
@@ -69,9 +79,7 @@ class Network(object):
 							del recvDict[(partCount, senderIP, senderPort)]
 							continue
 				except socket.timeout:
-					if eingabe == "ende":
-						break
-					continue
+					pass
 		except socket.error as msg:
 			print msg
 		finally: 

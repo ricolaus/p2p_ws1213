@@ -7,6 +7,7 @@ import re
 import shutil
 import random
 import help_functions
+import Queue
    
 class Application:
     def __init__(self, path = "/User1/", q1 = None, q2 = None, q3=None):
@@ -18,6 +19,7 @@ class Application:
         self.maxReqNumber = 5
         self.maxSendNumber = 5
         self.fileSetLock = threading.Lock()
+        self.__terminated = False
         
         self.reqFiles = {}
         #dict of requested parts format: (filename, filehash, part) : ownerName
@@ -39,9 +41,18 @@ class Application:
         self.overlayWaitThread = threading.Thread(target=self.overlayWait)
         self.overlayWaitThread.start()
         #self.mainLoopThread.join()
+        
+    #===========================================================================
+    # terminate
+    #
+    # Initiates the termination of all threads.
+    #===========================================================================
+    def terminate(self):
+        print "Terminate application layer."
+        self.__terminated = True
        
     def mainLoop(self):
-        while(True):
+        while not self.__terminated:
             # TODO: better/more efficient comparison of oldFileset and currentFileset, parts?
             # TODO: need a lock here, so no lookup for file, if currently a file is written
             self.fileSetLock.acquire()
@@ -59,24 +70,27 @@ class Application:
 
         
     def overlayWait(self):
-        while(True):
-            currentCommand = self.inQueue.get(True)
-            self.fileSetLock.acquire()
-            # print "message received"
-            if currentCommand[0] == "refFL":
-                self.processIncRefFl(currentCommand[1:])
-                
-            elif currentCommand[0] == "reqFile":
-                self.processIncReqFile(currentCommand[1:])
-            # TODO: receive message from network  
-            elif currentCommand[0] == "fileTransRecv":
-                self.processIncFileTransRec(currentCommand[1:])
-            elif currentCommand[0] == "fileTransSend":
-                self.processIncFileTransSend(currentCommand[1:])
-                # "fileTransSend ", targetUsername, filePath, successflag)
-            else:
-                print "Application ERROR: received unknown message from Overlay "
-            self.fileSetLock.release()
+        while not self.__terminated:
+            try:
+                currentCommand = self.inQueue.get(True, 1.0)
+                self.fileSetLock.acquire()
+                # print "message received"
+                if currentCommand[0] == "refFL":
+                    self.processIncRefFl(currentCommand[1:])
+                    
+                elif currentCommand[0] == "reqFile":
+                    self.processIncReqFile(currentCommand[1:])
+                # TODO: receive message from network  
+                elif currentCommand[0] == "fileTransRecv":
+                    self.processIncFileTransRec(currentCommand[1:])
+                elif currentCommand[0] == "fileTransSend":
+                    self.processIncFileTransSend(currentCommand[1:])
+                    # "fileTransSend ", targetUsername, filePath, successflag)
+                else:
+                    print "Application ERROR: received unknown message from Overlay "
+                self.fileSetLock.release()
+            except Queue.Empty:
+                pass
              
     def processIncFileTransSend(self, message):
         #target Username is also identifier
