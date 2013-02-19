@@ -36,6 +36,9 @@ class Application:
         #queue to overlay    
         #queue for user input, maybe not needed
         self.interfacequeue = q3 
+        self.fileSet = self.currentDirFiles()    
+        self.fileSet.update( self.incompletFileDir() )
+        
         self.mainLoopThread = threading.Thread(target=self.mainLoop)
         self.mainLoopThread.start()
         self.overlayWaitThread = threading.Thread(target=self.overlayWait)
@@ -52,13 +55,12 @@ class Application:
         self.__terminated = True
        
     def mainLoop(self):
+        
         while not self.__terminated:
             # TODO: better/more efficient comparison of oldFileset and currentFileset, parts?
             # TODO: need a lock here, so no lookup for file, if currently a file is written
             self.fileSetLock.acquire()
-            self.fileSet = self.currentDirFiles()
-            
-            self.fileSet.update( self.incompletFileDir() )
+            self.fileSet.update(self.currentDirFiles())
             #print self.fileSet
             message = ("refFL", self.fileSet)
             #message = ("refFL", right)
@@ -111,10 +113,13 @@ class Application:
         if stat: 
             #create fileSet entry if first part received
             if (fileName, fileHash) not in self.fileSet:
-                infoFile = open(join(self.folderName + r"."+fileName+r"_"+fileHash, r".info"), 'r')
-                maxParts = infoFile.read()
-                infoFile.close()
-                self.fileSet[fileName, fileHash] = ([str(partNumber)], maxParts, 0, "0")
+                try:
+                    infoFile = open(join(self.folderName + r"."+fileName+r"_"+fileHash, r".info"), 'r')
+                    maxParts = infoFile.read()
+                    infoFile.close()
+                    self.fileSet[fileName, fileHash] = ([str(partNumber)], maxParts, 0, "0")
+                except Exception:
+                    return
             #add PartNumber to parts-list in fileSet-entry
             else:
                 
@@ -153,7 +158,10 @@ class Application:
             self.sendFiles[(fileName, fileHash, part)] = senderUsername
             reply = ("sendFile", filepath,  part, senderUsername, port)
             self.outQueue.put(reply, True)
-            
+        else:
+            #print str(not self.alreadySendingToReceiver(senderUsername)) + self.sendFiles
+            #print str((fileName, fileHash, part) not in self.sendFiles) + self.sendFiles
+            pass
         
     
     def processIncRefFl(self, message):
@@ -241,14 +249,19 @@ class Application:
         files = os.listdir(self.folderName)
         filelist = {}
         for fname in files:
+            fhash = ""
             #only files are accepted
             if isfile(join(self.folderName, fname)):
                 #erstmal zeitstempel betrachten
                 #ueberpruefen ob versionierung vorhanden
                 flistname, version = getFileVersion(fname)
                 #if version != "0":
-                #    print flistname + "\t" + fname +"\t" + version        
-                fhash = getHash(join(self.folderName, fname))
+                #    print flistname + "\t" + fname +"\t" + version
+                for key in self.fileSet:
+                    if key[0] == flistname:
+                        fhash = key[1]        
+                if fhash == "":
+                    fhash = getHash(join(self.folderName, fname))
                 size = help_functions.getPartCount(join(self.folderName, fname))
                 time = os.path.getmtime(join(self.folderName, fname))
                 filelist[(flistname, fhash)] = ([], str(size), time, version )
