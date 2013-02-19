@@ -31,6 +31,10 @@ class Overlay:
         self.ownIP = ip
         # own port
         self.ownPort = port
+        # bootstrapping IP
+        self.bootstrappingIP = bootstrappingIP
+        # bootstrapping Port
+        self.bootstrappingPort = bootstrappingPort
         # own identifier := ip:port
         self.ownIdentifier = str(ip) + ":" + str(port)
         # list of known (max. 15) peers with structure: [(username, identifier)]
@@ -60,7 +64,7 @@ class Overlay:
         # last sent ping id
         self.lastSentPingID = ""
         # bootstrapping
-        self.sendPing(bootstrappingIP, bootstrappingPort)
+        self.sendPing(self.bootstrappingIP, self.bootstrappingPort)
     
     #===========================================================================
     # terminate
@@ -528,6 +532,9 @@ class Overlay:
                 rndIdentifier = random.choice(self.neighbors.keys())
                 ip, port = self.splitIpAndPort(rndIdentifier)
                 self.sendPing(ip, port) 
+            elif len(self.neighbors) == 0:
+                # send ping to bootstrapping peer
+                self.sendPing(self.bootstrappingIP, self.bootstrappingPort) 
         
         for identifier in self.neighbors.keys():
             # split identifier
